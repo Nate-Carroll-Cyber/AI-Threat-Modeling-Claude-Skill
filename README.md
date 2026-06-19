@@ -1,5 +1,8 @@
 # AI Threat Models
 
+NOTE: IN DEVELOPMENT. 
+INSTALLATION: DOWNLOAD AND INSTALL THE .ZIP FILE VIA CLAUDE SETTINGS (MAC OSX) > CAPABILITIES > SKILLS (CUSTOMIZE) > + CREATE SKILL > UPLOAD A SKILL 
+
 A Claude skill that produces **evidence-based, layered threat-model assessments** for agentic AI systems — LLM, RAG, MCP, tool-using, and multi-agent architectures. The analytical backbone is **MAESTRO v2.0** (Cloud Security Alliance): a ten-layer, three-domain framework purpose-built for agentic AI.
 
 The skill's defining trait is **evidence discipline**. Every finding is gated on what the user actually supplied. Claims that the evidence doesn't support are marked `Unanswerable from current evidence` with a list of the artifacts needed to close the gap, rather than being filled in with plausible-sounding speculation. A short, honest gap assessment is treated as more valuable than a long hedged one.
