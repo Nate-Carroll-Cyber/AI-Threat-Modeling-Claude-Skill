@@ -1,6 +1,6 @@
 # Framework Crosswalk
 
-Load this reference **only when the user requests** mapping to one of: STRIDE, MITRE ATLAS, OWASP LLM Top 10, OWASP Agentic AI Top 10, NIST AI RMF, or a cloud-provider AI security framework. MAESTRO is the primary spine; these are secondary lenses.
+Load this reference **only when the user requests** mapping to one of: STRIDE, MITRE ATLAS, OWASP LLM Top 10, OWASP Agentic AI Top 10, OWASP Agentic Skills Top 10 (AST01–AST10), OWASP MCP Top 10 (MCP01–MCP10), NIST AI RMF, or a cloud-provider AI security framework. MAESTRO is the primary spine; these are secondary lenses.
 
 **Source**: MAESTRO v2.0, Section 12.
 
@@ -22,14 +22,16 @@ When the user names one framework, emit only that subsection. Do not opportunist
 
 ### Full crosswalk mode (opt-in, off by default)
 
-When — and only when — the user explicitly asks for all frameworks (the trigger phrases above), emit the complete Section 11 with all six subsections in this fixed order:
+When — and only when — the user explicitly asks for all frameworks (the trigger phrases above), emit the complete Section 11 with all eight subsections in this fixed order:
 
 1. **11.1 STRIDE**
 2. **11.2 MITRE ATLAS**
 3. **11.3 OWASP LLM Top 10**
 4. **11.4 OWASP Agentic AI Top 10 (ASI01–ASI10)**
 5. **11.5 OWASP Agentic Threats & Mitigations (T1–T15)** — with the matching mitigation playbook cited per row
-6. **11.6 NIST AI RMF** — lead with the Govern/Map/Measure/Manage function, pivot into the MAESTRO layer
+6. **11.6 OWASP Agentic Skills Top 10 (AST01–AST10)** — only populated when a skill-installation surface is evidenced; otherwise the subsection states in one line that no third-party skill/plugin loading surface is evidenced and is not padded
+7. **11.7 OWASP MCP Top 10 (MCP01–MCP10)** — only populated when MCP is explicitly evidenced (rule 5); otherwise a one-line no-MCP-surface statement, not padded. Carries the beta + BY-NC-SA license caveats from `mcp-top10.md` whenever populated
+8. **11.8 NIST AI RMF** — lead with the Govern/Map/Measure/Manage function, pivot into the MAESTRO layer
 
 Rules for full crosswalk mode, all of which preserve the skill's evidence discipline:
 - **Map only the assessment's existing findings.** Each subsection re-expresses the Section 8 MAESTRO findings in the other framework's vocabulary. A crosswalk never introduces a new threat that Section 8 did not already establish on the evidence.
@@ -179,6 +181,60 @@ When the user wants OWASP-aligned remediation, draw recommended mitigations from
 
 ---
 
+## MAESTRO + OWASP Agentic Skills Top 10 (AST01–AST10)
+
+**A third, distinct OWASP artifact** — not the ASI01–ASI10 Top 10 and not the T1–T15 taxonomy. AST10 (OWASP Agentic Skills Top 10, v1.0 2026) covers the **installable behavior layer**: third-party skills, plugins, and behavior packages (SKILL.md / skill.json / manifest.json formats) and the registries that distribute them. Mental model: *MCP = how the model talks to tools; AST10 = what those tools actually do.* Three independent OWASP numbering systems now appear in this file — `ASI<nn>`, `T<n>`, `AST<nn>` — never conflate them with each other or with MAESTRO `L<n>-T<nn>` IDs.
+
+Full detail — per-risk evidence checks, lethal-trifecta trigger, incident evidence base, mitigation sourcing — lives in `references/agentic-skills-top10.md`. That file also carries the mandatory layer-mapping caveat: the OWASP project publishes its MAESTRO mapping against the original 7-layer model; the table below (and the fuller one in the dedicated file) is this skill's re-mapping into MAESTRO v2.0 ten-layer coordinates.
+
+**Applicability gate**: this crosswalk subsection is populated only when the assessment evidenced a skill installation/loading surface. Bare MCP tool use does not activate it — that stays with L6-T04/L6-T08 and the ASI/T lenses.
+
+### AST01–AST10 → MAESTRO v2.0 mapping (summary)
+
+| AST Risk | Severity | MAESTRO Layer(s) |
+|---|---|---|
+| **AST01 Malicious Skills** | Critical | L6 (L6-T05), L3 (L3-T03), L8, L5 |
+| **AST02 Supply Chain Compromise** | Critical | L1 (L1-T01), L5 (L5-T02), L6, L10 |
+| **AST03 Over-Privileged Skills** | High | L7 (L7-T03), L6 (L6-T06), L5 |
+| **AST04 Insecure Metadata** | High | L6 (L6-T08), L5 (L5-T03), L8 |
+| **AST05 Untrusted External Instructions** | High | L3 (CE-T1/L3-T04), L2 (L2-T03), L6, L1 |
+| **AST06 Weak Isolation** | High | L5 (L5-T01, L5-T04), L1, L6 |
+| **AST07 Update Drift** | Medium | L5 (L5-T06), L6, L10 |
+| **AST08 Poor Scanning** | Medium | L9, L8 (L8-T01), L5 |
+| **AST09 No Governance** | Medium | L10 (L10-T01), L7, L9 |
+| **AST10 Cross-Platform Reuse** | Medium | L6, L10, L5 |
+
+**How to cite in an assessment**: MAESTRO `L<n>-T<nn>` stays the canonical ID; add the `AST<nn>` ID parenthetically. Likelihood justifications may draw on the confirmed 2026 incident base in the dedicated file (ClawHavoc, ToxicSkills, ClawJacked, SkillJacking) — cite the source, not just the figure.
+
+---
+
+## MAESTRO + OWASP MCP Top 10 (MCP01:2025–MCP10:2025)
+
+**A fourth OWASP artifact and a fourth numbering system** (`MCP<nn>:2025`) — the protocol layer connecting agents to tools, distinct from ASI (agentic application risks), T1–T15 (threat taxonomy), and AST (installable skill packages). Detail, per-risk evidence checks, and the full mapping live in `references/mcp-top10.md`.
+
+**Three caveats travel with every citation** (full text in the dedicated file): Phase 3 beta — IDs stable, rankings/descriptions may shift, next release Oct 2026; **CC BY-NC-SA 4.0 license** — own-words paraphrase only, flag the NonCommercial term before use in commercial deliverables; MCP03's title says tool poisoning while its body describes schema poisoning — treat as covering both, note the inconsistency.
+
+**Applicability gate**: populated only when MCP is explicitly evidenced (skill rule 5). Bare tool use is not MCP evidence.
+
+### MCP01–MCP10 → MAESTRO v2.0 mapping (summary)
+
+| MCP Risk | MAESTRO Layer(s) |
+|---|---|
+| **MCP01 Token Mismanagement & Secret Exposure** | L7 (L7-T02), L3 (L3-T05), L1 (L1-T04), L9 |
+| **MCP02 Privilege Escalation via Scope Creep** | L7 (L7-T03, L7-T07), L4 (L4-T05) |
+| **MCP03 Tool / Schema Poisoning** | L6 (L6-T08, L6-T04), L2 |
+| **MCP04 Supply Chain & Dependency Tampering** | L1 (L1-T01), L6 (L6-T04/T05), L5 (L5-T02) |
+| **MCP05 Command Injection & Execution** | L5 (L5-T01, L5-T04), L6 (L6-T06), L2 (L2-T03) |
+| **MCP06 Intent Flow Subversion** | L4 (L4-T02), L2 (L2-T03), L3 (CE-T1/L3-T04) |
+| **MCP07 Insufficient AuthN & AuthZ** | L7 (L7-T01, L7-T03), L6, L4 |
+| **MCP08 Lack of Audit & Telemetry** | L9 (L9-T02), L10 (L10-T05) |
+| **MCP09 Shadow MCP Servers** | L10 (L10-T01), L6 (L6-T04), L9 |
+| **MCP10 Context Injection & Over-Sharing** | L3 (L3-T04, CE-T1/CE-T7, L3-T05), L6 (L6-T06) |
+
+**How to cite**: MAESTRO ID primary, `MCP<nn>:2025` parenthetical. The AST10 whitepaper's per-risk mappings cite these same MCP IDs — the two subsections resolve each other.
+
+---
+
 ## MAESTRO + NIST AI RMF
 
 NIST AI RMF is a governance-level risk-management framework. NIST tells you "what to do"; MAESTRO tells you "how to do it."
@@ -217,6 +273,8 @@ When asked for a holistic security-program recommendation, refer the user to thi
 - **Threat Modeling**: MAESTRO (primary), STRIDE (supplementary)
 - **Attack Knowledge Base**: MITRE ATLAS
 - **Application Security**: OWASP LLM Top 10, OWASP Agentic AI Top 10
+- **Skill / Behavior-Layer Supply Chain**: OWASP Agentic Skills Top 10 (AST01–AST10)
+- **Tool-Protocol Layer**: OWASP MCP Top 10 (MCP01–MCP10; beta, BY-NC-SA — see caveats)
 - **Infrastructure Security**: CIS Benchmarks, NIST CSF
 - **AI Supply Chain Responsibility**: CSA AICM, Agent SSRM
 - **Compliance**: industry-specific (PCI DSS, HIPAA, SOC 2, EU AI Act)

@@ -1,9 +1,5 @@
 # AI Threat Models
 
-IN DEVELOPMENT.
-
-INSTALLATION: DOWNLOAD AND INSTALL THE .ZIP FILE VIA CLAUDE SETTINGS (MAC OSX) > CAPABILITIES > SKILLS (CUSTOMIZE) > + CREATE SKILL > UPLOAD A SKILL 
-
 A Claude skill that produces **evidence-based, layered threat-model assessments** for agentic AI systems — LLM, RAG, MCP, tool-using, and multi-agent architectures. The analytical backbone is **MAESTRO v2.0** (Cloud Security Alliance): a ten-layer, three-domain framework purpose-built for agentic AI.
 
 The skill's defining trait is **evidence discipline**. Every finding is gated on what the user actually supplied. Claims that the evidence doesn't support are marked `Unanswerable from current evidence` with a list of the artifacts needed to close the gap, rather than being filled in with plausible-sounding speculation. A short, honest gap assessment is treated as more valuable than a long hedged one.
@@ -20,7 +16,7 @@ Given a system description — a filled worksheet, a partial worksheet, or just 
 - Enumerates applicable threats per layer, each separated into evidenced facts, bounded inferences, and unknowns.
 - Traces cross-layer attack paths (kill-chain / attack-tree style) that the evidence makes plausible.
 - Assigns **Agent 3SRM** ownership (CSP / MP / OSP / AP / Tool Provider / AIC) to each finding, with the Agent Owner's non-delegable accountability made explicit.
-- Optionally crosswalks to other frameworks (STRIDE, MITRE ATLAS, OWASP LLM Top 10, OWASP Agentic, NIST AI RMF) on request — one named framework at a time, or all of them at once via full-crosswalk mode (see **Output**).
+- Optionally crosswalks to other frameworks (STRIDE, MITRE ATLAS, OWASP LLM Top 10, OWASP Agentic ASI01–ASI10 and T1–T15, OWASP Agentic Skills Top 10 AST01–AST10, OWASP MCP Top 10 MCP01–MCP10, NIST AI RMF) on request — one named framework at a time, or all of them at once via full-crosswalk mode (see **Output**).
 - Optionally applies the **inverted-adversary lens** (TRAIT&R) when insider-threat / misalignment is in scope.
 
 It is a **defensive** modeling tool. It declines requests for exploit code or weaponizable detail and continues with the defensive analysis.
@@ -59,7 +55,7 @@ These are the reason to use a structured skill rather than free-form analysis; e
 ## Methodology (five steps)
 
 1. **System Decomposition** — map evidenced components to layers; map agent-to-agent boundaries if multi-agent.
-2. **Layer-Specific Threat Analysis** — assess applicable threats per evidenced layer; additionally evaluate multi-agent categories, the seven context-engineering threats (CE-T1…CE-T7), and — if insider-threat/misalignment is in scope — the TRAIT&R inverted-adversary lens.
+2. **Layer-Specific Threat Analysis** — assess applicable threats per evidenced layer; additionally evaluate multi-agent categories, the seven context-engineering threats (CE-T1…CE-T7), the OWASP Agentic Skills Top 10 lens (AST01–AST10) when the system installs/loads third-party skills or plugins, the OWASP MCP Top 10 lens (MCP01–MCP10) when MCP is explicitly evidenced, and — if insider-threat/misalignment is in scope — the TRAIT&R inverted-adversary lens.
 3. **Cross-Layer Path Analysis** — trace how compromise propagates; don't manufacture paths.
 4. **Mitigation & SSRM Ownership** — recommend concrete controls; assign 3SRM roles.
 5. **Framework Crosswalk** — optional, on request (see **Output** for how to control it).
@@ -73,7 +69,7 @@ A 14-section assessment in a fixed order, from "Understanding Confirmed" through
 **By default the assessment uses MAESTRO as its single spine and includes no external-framework crosswalk.** This keeps the report focused: crosswalks are a secondary lens that competes with the MAESTRO spine for the reader's attention, so Section 11 appears only when asked for. To get one, say what you want:
 
 - **One (or a few) named frameworks** — *"map this to MITRE ATLAS"*, *"add NIST AI RMF alignment"*, *"include the OWASP Agentic Top 10 crosswalk"* — produces just that subsection (or those subsections). Naming one framework does not pull in the others.
-- **All of them at once** — *"include the full framework crosswalk"*, *"crosswalk to everything"*, or *"all frameworks"* — triggers **full-crosswalk mode**: the complete Section 11 with all six subsections in fixed order — **11.1 STRIDE · 11.2 MITRE ATLAS · 11.3 OWASP LLM Top 10 · 11.4 OWASP Agentic Top 10 (ASI01–ASI10) · 11.5 OWASP Agentic T1–T15 (with mitigation playbooks) · 11.6 NIST AI RMF**.
+- **All of them at once** — *"include the full framework crosswalk"*, *"crosswalk to everything"*, or *"all frameworks"* — triggers **full-crosswalk mode**: the complete Section 11 with all eight subsections in fixed order — **11.1 STRIDE · 11.2 MITRE ATLAS · 11.3 OWASP LLM Top 10 · 11.4 OWASP Agentic Top 10 (ASI01–ASI10) · 11.5 OWASP Agentic T1–T15 (with mitigation playbooks) · 11.6 OWASP Agentic Skills Top 10 (AST01–AST10, populated only when a skill-installation surface is evidenced) · 11.7 OWASP MCP Top 10 (MCP01–MCP10, populated only when MCP is evidenced; beta + BY-NC-SA caveats apply) · 11.8 NIST AI RMF**.
 
 Two things hold in either case, by design:
 
@@ -127,7 +123,7 @@ Reference files are loaded conditionally, not all at once:
 
 ### Crosswalk default — opt-in, not automatic
 
-Section 11 is **off by default and produced only on request** — one subsection per named framework, or all six via full-crosswalk mode. This is deliberate, not an omission: the skill's first principle is that MAESTRO is the single analytical spine and the other frameworks are secondary lenses that map *into* it. Emitting crosswalks unprompted reintroduces the failure mode the design prevents — the report drifts from a threat model toward a framework-mapping exercise, and reflexively generated mappings tend to overstate coverage. If you are considering changing the default to always-on, weigh that against the majority of uses that are not compliance-driven; the recommended posture is to keep it opt-in and make opting-in cheap (the full-crosswalk trigger phrases), which is the current design. The trigger list and the full-crosswalk spec both live in `framework-crosswalk.md` under "When to include Section 11".
+Section 11 is **off by default and produced only on request** — one subsection per named framework, or all eight via full-crosswalk mode. This is deliberate, not an omission: the skill's first principle is that MAESTRO is the single analytical spine and the other frameworks are secondary lenses that map *into* it. Emitting crosswalks unprompted reintroduces the failure mode the design prevents — the report drifts from a threat model toward a framework-mapping exercise, and reflexively generated mappings tend to overstate coverage. If you are considering changing the default to always-on, weigh that against the majority of uses that are not compliance-driven; the recommended posture is to keep it opt-in and make opting-in cheap (the full-crosswalk trigger phrases), which is the current design. The trigger list and the full-crosswalk spec both live in `framework-crosswalk.md` under "When to include Section 11".
 
 ### Numbering systems — keep them separate
 
