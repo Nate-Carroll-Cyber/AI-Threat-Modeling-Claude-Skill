@@ -2,8 +2,8 @@
 
 Load this reference when **either** condition holds:
 
-1. **Conditional Step 2 lens** — the evidence shows the system installs, loads, or executes third-party *skills* (behavior packages: SKILL.md, skill.json, manifest.json, package.json extensions), plugins, or agent extensions; or it consumes a skill registry / marketplace (ClawHub, skills.sh, or equivalent). Same activation pattern as the multi-agent categories and CE-T1–T7: evidence-gated, applied inside the standard layer analysis.
-2. **Named crosswalk** — the user asks for "OWASP Agentic Skills Top 10", "AST10", or a "skill security review / skill supply-chain assessment" alignment (Section 11.7).
+1. **Mandatory Step 2 lens (skill rule 9; results in Section 10.3)** — the evidence or the request references that the system installs, loads, or executes third-party *skills* (behavior packages: SKILL.md, skill.json, manifest.json, package.json extensions), plugins, or agent extensions; or it consumes a skill registry / marketplace (ClawHub, skills.sh, or equivalent). Same activation pattern as the multi-agent categories and CE-T1–T7: evidence-gated, applied inside the standard layer analysis.
+2. **Named crosswalk** — the user asks for "OWASP Agentic Skills Top 10", "AST10", or a "skill security review / skill supply-chain assessment" alignment (Section 13.7).
 
 Do **not** apply this lens on the bare fact that "the agent uses tools." MCP tool integration is L6-T04/L6-T08 territory; the AST10 lens is specifically about the **behavior layer** — installable skill packages that orchestrate those tools. Mental model from the source project: *MCP = how the model talks to tools; AST10 = what those tools actually do.* If no skill installation/loading surface is evidenced, AST findings are `Unanswerable from current evidence`.
 
@@ -40,20 +40,20 @@ The OWASP project page maps AST risks to CSA MAESTRO's **original 7-layer** mode
 
 ## The ten risks
 
-| AST | Risk | Severity | MAESTRO v2.0 layer homes | Nearest MAESTRO threat IDs |
-|---|---|---|---|---|
-| AST01 | Malicious Skills | Critical | L6, L3, L8, L5 | L6-T05 (marketplace trojans); L3-T03 (memory pollution via identity-file writes); L8-T01 |
-| AST02 | Supply Chain Compromise | Critical | L1, L5, L6, L10 | L1-T01; L5-T02 (CI/CD); L6-T05 |
-| AST03 | Over-Privileged Skills | High | L7, L6, L5 | L7-T03 (over-privileged identities); L6-T06 (API abuse/exfiltration) |
-| AST04 | Insecure Metadata | High | L6, L5, L8 | L6-T08 (tool/skill definition poisoning); L5-T03 (runtime tampering via unsafe deserialization) |
-| AST05 | Untrusted External Instructions | High | L3, L2, L6, L1 | CE-T1 / L3-T04 (context poisoning); L2-T03 (indirect prompt injection); L1-T01 (hijackable dependency) |
-| AST06 | Weak Isolation | High | L5, L1, L6 | L5-T01 (container escape); L5-T04 (sandbox breakout) |
-| AST07 | Update Drift | Medium | L5, L6, L10 | L5-T06 (rollback/version exploitation); L6-T05 |
-| AST08 | Poor Scanning | Medium | L9, L8, L5 | L9 detection-coverage gaps; L8-T01 (guardrail/scanner bypass) |
-| AST09 | No Governance | Medium | L10, L7, L9 | L10-T01 (shadow AI / rogue agents); L7 NHI lifecycle |
-| AST10 | Cross-Platform Reuse | Medium | L6, L10, L5 | L6-T05; L10 (governance property loss across platforms) |
+| AST | Risk | Severity | MAESTRO v2.0 layer homes | Nearest MAESTRO threat IDs | ATLAS (5.6.0) |
+|---|---|---|---|---|---|
+| AST01 | Malicious Skills | Critical | L6, L3, L8, L5 | L6-T05 (marketplace trojans); L3-T03 (memory pollution via identity-file writes); L8-T01 | AML.T0104 Publish Poisoned AI Agent Tool; T0011.002 Poisoned AI Agent Tool |
+| AST02 | Supply Chain Compromise | Critical | L1, L5, L6, L10 | L1-T01; L5-T02 (CI/CD); L6-T05 | AML.T0010.005 AI Agent Tool; T0010.004 Container Registry; T0109 Rug Pull |
+| AST03 | Over-Privileged Skills | High | L7, L6, L5 | L7-T03 (over-privileged identities); L6-T06 (API abuse/exfiltration) | AML.T0053 AI Agent Tool Invocation (PrivEsc); T0086 Exfiltration via AI Agent Tool Invocation |
+| AST04 | Insecure Metadata | High | L6, L5, L8 | L6-T08 (tool/skill definition poisoning); L5-T03 (runtime tampering via unsafe deserialization) | AML.T0110 AI Agent Tool Poisoning; T0084.001 Tool Definitions |
+| AST05 | Untrusted External Instructions | High | L3, L2, L6, L1 | CE-T1 / L3-T04 (context poisoning); L2-T03 (indirect prompt injection); L1-T01 (hijackable dependency) | AML.T0051.001 Indirect; T0051.002 Triggered; T0080 Context Poisoning |
+| AST06 | Weak Isolation | High | L5, L1, L6 | L5-T01 (container escape); L5-T04 (sandbox breakout) | AML.T0105 Escape to Host; T0097 Virtualization/Sandbox Evasion; T0112.000 Local AI Agent |
+| AST07 | Update Drift | Medium | L5, L6, L10 | L5-T06 (rollback/version exploitation); L6-T05 | AML.T0109 AI Supply Chain Rug Pull; T0081 Modify AI Agent Configuration |
+| AST08 | Poor Scanning | Medium | L9, L8, L5 | L9 detection-coverage gaps; L8-T01 (guardrail/scanner bypass) | AML.T0068 LLM Prompt Obfuscation; T0107 Exploitation for Defense Evasion |
+| AST09 | No Governance | Medium | L10, L7, L9 | L10-T01 (shadow AI / rogue agents); L7 NHI lifecycle | AML.T0103 Deploy AI Agent; T0108 AI Agent (C2); T0111 Reputation Inflation |
+| AST10 | Cross-Platform Reuse | Medium | L6, L10, L5 | L6-T05; L10 (governance property loss across platforms) | AML.T0010.005; T0084 Discover AI Agent Configuration |
 
-Per-threat blocks in Section 8 keep MAESTRO `L<n>-T<nn>` IDs primary; cite the `AST<nn>` ID parenthetically, exactly as with OWASP `T<n>` and `ASI<nn>` IDs.
+Per-threat blocks in Section 9 keep MAESTRO `L<n>-T<nn>` IDs primary; cite the `AST<nn>` ID parenthetically, exactly as with OWASP `T<n>` and `ASI<nn>` IDs.
 
 ---
 
@@ -65,7 +65,7 @@ A skill surface is *especially* dangerous when the evidence shows all three simu
 2. **Exposure to untrusted content** — skill instructions, memory files, email, fetched docs.
 3. **External communication ability** — network egress, webhooks, shell `curl`.
 
-If all three are evidenced, say so explicitly in Section 8 and treat the affected AST findings as elevated. If only one or two are evidenced, state which leg is missing — the missing leg is often the cheapest mitigation.
+If all three are evidenced, say so explicitly in Section 9 and treat the affected AST findings as elevated. If only one or two are evidenced, state which leg is missing — the missing leg is often the cheapest mitigation.
 
 ---
 
@@ -214,7 +214,7 @@ These are incident-frequency justifications for *Likelihood* only. *Impact* stil
 
 When an assessment surfaces a suspected malicious skill, the analysis sequence is: **static** (SKILL.md instructions, obfuscation, YAML anomalies, signature vs known publisher keys) → **dynamic** (isolated sandbox; observe filesystem, network, process activity; check SOUL.md/MEMORY.md persistence writes) → **behavioral indicators** (unusual egress, exfiltration attempts, shell execution beyond stated function, identity-file modification). Common detection signatures: base64 payloads in YAML comments, non-HTTPS download instructions, excessive permission requests (identity-file writes), typosquats of popular services, social-engineering prompts ("run this command to enable...").
 
-Confirmed-incident response checklist: isolate affected agents → revoke compromised credentials → scan for lateral movement → notify the skill registry → update detection signatures → review installation-approval process. Feed this into Section 12 (Required Validation Steps) when an AST01 finding is Answerable.
+Confirmed-incident response checklist: isolate affected agents → revoke compromised credentials → scan for lateral movement → notify the skill registry → update detection signatures → review installation-approval process. Feed this into Section 14 (Required Validation Steps) when an AST01 finding is Answerable.
 
 ## Mitigation sourcing (Step 4)
 

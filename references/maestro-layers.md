@@ -1,6 +1,6 @@
 # MAESTRO v2.0 — Ten-Layer Threat Reference
 
-This file is the layer-by-layer threat catalog used by the AI Threat Model Analyst skill. Each layer entry lists: definition, components, SSRM owner, key AICM controls, and the canonical sample threats (`L<n>-T<nn>`). Use these threat IDs verbatim in Section 8 of the assessment output.
+This file is the layer-by-layer threat catalog used by the AI Threat Model Analyst skill. Each layer entry lists: definition, components, SSRM owner, key AICM controls, and the canonical sample threats (`L<n>-T<nn>`). Use these threat IDs verbatim in Section 9 of the assessment output.
 
 **Source**: MAESTRO v2.0 (CSA, Apr 2026, v0.91 draft), Section 7.
 
@@ -263,7 +263,7 @@ Typical owner: CISO / CTO / VP SecOps / VP Platform Engineering. Control type: p
 
 ## Extended threat scenarios (OWASP T16–T25 → MAESTRO)
 
-These ten scenarios come from OWASP's agentic threat-modeling work (the extension set beyond the T1–T15 taxonomy in `framework-crosswalk.md`). They are **concrete, often application-specific manifestations** of the canonical MAESTRO threats above — not new layers. The source paper presented them under an independent 8-layer scheme; that scheme is **not used here** because its layer numbers collide with MAESTRO's L1–L10. Each scenario is instead mapped to its MAESTRO home below. Use the MAESTRO `L<n>-T<nn>` ID as primary in Section 8; cite the OWASP `T<n>` ID parenthetically when the user wants OWASP alignment.
+These ten scenarios come from OWASP's agentic threat-modeling work (the extension set beyond the T1–T15 taxonomy in `framework-crosswalk.md`). They are **concrete, often application-specific manifestations** of the canonical MAESTRO threats above — not new layers. The source paper presented them under an independent 8-layer scheme; that scheme is **not used here** because its layer numbers collide with MAESTRO's L1–L10. Each scenario is instead mapped to its MAESTRO home below. Use the MAESTRO `L<n>-T<nn>` ID as primary in Section 9; cite the OWASP `T<n>` ID parenthetically when the user wants OWASP alignment.
 
 | OWASP | Scenario | MAESTRO home | Notes |
 |---|---|---|---|
@@ -278,7 +278,7 @@ These ten scenarios come from OWASP's agentic threat-modeling work (the extensio
 | **T24** | Dynamic policy enforcement failure | **L10-T02** | Flaws in a dynamic policy engine produce incorrect/inconsistent/missing policy application. Maps to L10-T02 (Policy Bypass) with L8 (guardrail) impact. |
 | **T25** | Workflow disruption via dependency exploitation | **L6** | A dependency (third-party API, plugin, peer agent/system) is targeted to interrupt primary-agent workflows. L6 ecosystem/supply-chain surface; cross-ref STA-domain controls and multi-agent coordination-manipulation patterns for multi-agent cases. |
 
-**Usage**: when an assessment surfaces one of these patterns in the evidence, document it in Section 8 under its MAESTRO home using the standard per-threat block, and note the OWASP `T<n>` ID. Do not introduce the 8-layer scheme into the output — it would conflict with the MAESTRO layer mapping that anchors the assessment.
+**Usage**: when an assessment surfaces one of these patterns in the evidence, document it in Section 9 under its MAESTRO home using the standard per-threat block, and note the OWASP `T<n>` ID. Do not introduce the 8-layer scheme into the output — it would conflict with the MAESTRO layer mapping that anchors the assessment.
 
 ---
 

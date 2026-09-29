@@ -2,8 +2,8 @@
 
 Load this reference when **either** condition holds:
 
-1. **Conditional Step 2 lens** — MCP is explicitly evidenced (skill rule 5 already gates this): the system runs, connects to, or exposes MCP servers, clients, or MCP-delivered tools. This is the **protocol layer** — how the model talks to tools. Contrast with `agentic-skills-top10.md`, which covers the installable **behavior layer**. The two lenses stack on the same system without overlapping: a finding about an MCP server, its schemas, its transport, or its auth belongs here; a finding about an installable skill package belongs to AST.
-2. **Named crosswalk** — the user asks for "MCP Top 10", "MCP01–MCP10", or MCP-protocol security alignment (Section 11.7).
+1. **Mandatory Step 2 lens (skill rule 9)** — MCP is referenced in the evidence or the request: the system runs, connects to, or exposes MCP servers, clients, or MCP-delivered tools, or the user names MCP. The lens runs in full from this file; rule 5 still gates each finding on explicit evidence, so a referenced-but-unevidenced MCP surface yields `unevidenced` gaps, not findings. Results are recorded in Section 10.2. This is the **protocol layer** — how the model talks to tools. Contrast with `agentic-skills-top10.md`, which covers the installable **behavior layer**. The two lenses stack on the same system without overlapping: a finding about an MCP server, its schemas, its transport, or its auth belongs here; a finding about an installable skill package belongs to AST.
+2. **Named crosswalk** — the user asks for "MCP Top 10", "MCP01–MCP10", or MCP-protocol security alignment (Section 13.8).
 
 **Sources**: OWASP MCP Top 10 project — index and the ten per-risk source files at github.com/OWASP/www-project-mcp-top-10 (2025/ directory), project page https://owasp.org/www-project-mcp-top-10/. Project lead: Vandana Verma Sehgal.
 
@@ -18,20 +18,20 @@ Load this reference when **either** condition holds:
 
 ## The ten risks → MAESTRO v2.0 mapping
 
-MAESTRO `L<n>-T<nn>` IDs stay primary in Section 8; cite `MCP<nn>:2025` parenthetically, as with ASI/T/AST IDs.
+MAESTRO `L<n>-T<nn>` IDs stay primary in Section 9; cite `MCP<nn>:2025` parenthetically, as with ASI/T/AST IDs.
 
-| MCP | Risk (own-words gist) | MAESTRO v2.0 layer homes | Nearest MAESTRO threat IDs |
-|---|---|---|---|
-| MCP01 | Token mismanagement & secret exposure — long-lived/hard-coded credentials persisting in context memory, logs, vector stores; "contextual secret leakage" where the protocol layer itself becomes a secret repository | L7, L3, L1, L9 | L7-T02 (credential theft & replay); L1-T04; L3-T05 (disclosure via memory/embeddings) |
-| MCP02 | Privilege escalation via scope creep — narrowly granted agent scopes widening through drift/convenience until autonomous over-privilege | L7, L4 | L7-T03 (over-privileged identities), L7-T07 (permission inheritance); L4-T05 (delegation-chain escalation) |
-| MCP03 | Tool/schema poisoning — malicious tool descriptions steering the model, or tampered schemas remapping benign verbs to destructive actions while passing validation | L6, L2 | L6-T08 (tool definition poisoning), L6-T04 (MCP server compromise) |
-| MCP04 | Supply chain & dependency tampering — compromised MCP server libraries, connectors, plugins, build pipelines in trusted execution paths | L1, L6, L5 | L1-T01; L6-T04/L6-T05; L5-T02 (CI/CD) |
-| MCP05 | Command injection & execution — model-mediated injection: agent builds shell/SQL/API calls from untrusted context; chaining operators; unsafe exec paths | L5, L6, L2 | L5-T04 (sandbox breakout), L5-T01; L6-T06; L2-T03 (the mediation path) |
-| MCP06 | Intent flow subversion — hidden instructions in retrieved context hijack the plan "in-flow" while the agent appears to serve the original request; meta-instructions persist across sessions | L4, L2, L3 | L4-T02 (goal hijacking); L2-T03; CE-T1 / L3-T04 |
-| MCP07 | Insufficient authentication & authorization — missing mutual auth between agents/tools, client-side-only checks, trusted-but-unverified caller identity, unscoped tokens | L7, L6, L4 | L7-T01 (identity forgery), L7-T03; L6 tool-invocation auth; L4 orchestration trust |
-| MCP08 | Lack of audit & telemetry — insufficient, mutable, or identity-uncorrelated logging of tool invocations and context changes | L9, L10 | L9-T02 (log tampering), L9 coverage gaps; L10-T05 (audit trail gaps) |
-| MCP09 | Shadow MCP servers — unapproved MCP instances outside governance (default creds, permissive config, unsecured APIs), often discovered dynamically by agents | L10, L6, L9 | L10-T01 (shadow AI / rogue agents); L6-T04; L9 visibility gaps |
-| MCP10 | Context injection & over-sharing — shared/persistent/under-scoped context windows leaking one task's, user's, or agent's data into another's | L3, L6 | L3-T04 (context poisoning), L3-T05/L3-T06 (leakage surfaces); CE-T1/CE-T7; L6-T06 (exfil path) |
+| MCP | Risk (own-words gist) | MAESTRO v2.0 layer homes | Nearest MAESTRO threat IDs | ATLAS (5.6.0) |
+|---|---|---|---|---|
+| MCP01 | Token mismanagement & secret exposure — long-lived/hard-coded credentials persisting in context memory, logs, vector stores; "contextual secret leakage" where the protocol layer itself becomes a secret repository | L7, L3, L1, L9 | L7-T02 (credential theft & replay); L1-T04; L3-T05 (disclosure via memory/embeddings) | AML.T0055 Unsecured Credentials; T0083; T0098; T0082 |
+| MCP02 | Privilege escalation via scope creep — narrowly granted agent scopes widening through drift/convenience until autonomous over-privilege | L7, L4 | L7-T03 (over-privileged identities), L7-T07 (permission inheritance); L4-T05 (delegation-chain escalation) | AML.T0053 AI Agent Tool Invocation (PrivEsc); T0012 Valid Accounts |
+| MCP03 | Tool/schema poisoning — malicious tool descriptions steering the model, or tampered schemas remapping benign verbs to destructive actions while passing validation | L6, L2 | L6-T08 (tool definition poisoning), L6-T04 (MCP server compromise) | AML.T0110 AI Agent Tool Poisoning; T0011.002; T0084.001 Tool Definitions |
+| MCP04 | Supply chain & dependency tampering — compromised MCP server libraries, connectors, plugins, build pipelines in trusted execution paths | L1, L6, L5 | L1-T01; L6-T04/L6-T05; L5-T02 (CI/CD) | AML.T0010.005 AI Agent Tool; T0010.004 Container Registry; T0104; T0109 |
+| MCP05 | Command injection & execution — model-mediated injection: agent builds shell/SQL/API calls from untrusted context; chaining operators; unsafe exec paths | L5, L6, L2 | L5-T04 (sandbox breakout), L5-T01; L6-T06; L2-T03 (the mediation path) | AML.T0050 Command and Scripting Interpreter; T0102 Generate Malicious Commands; T0105 Escape to Host |
+| MCP06 | Intent flow subversion — hidden instructions in retrieved context hijack the plan "in-flow" while the agent appears to serve the original request; meta-instructions persist across sessions | L4, L2, L3 | L4-T02 (goal hijacking); L2-T03; CE-T1 / L3-T04 | AML.T0051.001 Indirect; T0051.002 Triggered; T0080 Context Poisoning; T0094 Delay Execution |
+| MCP07 | Insufficient authentication & authorization — missing mutual auth between agents/tools, client-side-only checks, trusted-but-unverified caller identity, unscoped tokens | L7, L6, L4 | L7-T01 (identity forgery), L7-T03; L6 tool-invocation auth; L4 orchestration trust | AML.T0091.000 Application Access Token; T0073 Impersonation; T0012 |
+| MCP08 | Lack of audit & telemetry — insufficient, mutable, or identity-uncorrelated logging of tool invocations and context changes | L9, L10 | L9-T02 (log tampering), L9 coverage gaps; L10-T05 (audit trail gaps) | AML.T0092 Manipulate User LLM Chat History (evasion of the record); no direct ATLAS technique for absent telemetry |
+| MCP09 | Shadow MCP servers — unapproved MCP instances outside governance (default creds, permissive config, unsecured APIs), often discovered dynamically by agents | L10, L6, L9 | L10-T01 (shadow AI / rogue agents); L6-T04; L9 visibility gaps | AML.T0103 Deploy AI Agent; T0108 AI Agent (C2) |
+| MCP10 | Context injection & over-sharing — shared/persistent/under-scoped context windows leaking one task's, user's, or agent's data into another's | L3, L6 | L3-T04 (context poisoning), L3-T05/L3-T06 (leakage surfaces); CE-T1/CE-T7; L6-T06 (exfil path) | AML.T0080.000 Memory; T0057 LLM Data Leakage; T0086 Exfiltration via AI Agent Tool Invocation |
 
 The AST10 whitepaper's per-risk OWASP mappings cite these MCP IDs; the two files resolve each other's cross-references.
 

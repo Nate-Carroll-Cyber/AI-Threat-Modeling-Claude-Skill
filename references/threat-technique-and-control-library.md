@@ -24,7 +24,7 @@ Grouped by technique family. The **MAESTRO layer** column is added by this skill
 |---|---|---|---|---|
 | AITech-1.4 | Multi-Modal Injection and Manipulation | ASI05: Multi-modal Poisoning | AML.T0051.001 Indirect Injection | L2, L3 |
 | AISubtech-1.4.1 | Image-Text Injection | ASI05 | AML.T0051.001 | L3 |
-| AISubtech-1.4.2 | Image Manipulation | ASI05 | AML.T0031 Evade ML Model | L2 |
+| AISubtech-1.4.2 | Image Manipulation | ASI05 | AML.T0015 Evade AI Model | L2 |
 | AISubtech-1.4.3 | Audio Command Injection | ASI05 | AML.T0051.001 | L3 |
 | AISubtech-1.4.4 | Video Overlay Manipulation | ASI05 | AML.T0051.001 | L3 |
 
@@ -33,10 +33,10 @@ Grouped by technique family. The **MAESTRO layer** column is added by this skill
 | ID | Name | OWASP | ATLAS | MAESTRO |
 |---|---|---|---|---|
 | AISubtech-2.1.1 | Context Manipulation (Jailbreak) | LLM01 Prompt Injection | AML.T0054 LLM Jailbreak | L2, L4 |
-| AISubtech-2.1.2 | Obfuscation (Jailbreak) | LLM01 | AML.T0031 Evade ML Model | L2 |
+| AISubtech-2.1.2 | Obfuscation (Jailbreak) | LLM01 | AML.T0068 LLM Prompt Obfuscation | L2 |
 | AISubtech-2.1.3 | Semantic Manipulation (Jailbreak) | LLM01 | AML.T0054 | L2 |
 | AISubtech-2.1.5 | Multi-Agent Jailbreak Collaboration | ASI07 Insecure Agent Comm | AML.T0051.002 | L4, L6 |
-| AISubtech-3.1.1 | Identity Obfuscation | LLM01 | AML.T0031 | L7 |
+| AISubtech-3.1.1 | Identity Obfuscation | LLM01 | AML.T0015 Evade AI Model | L7 |
 
 ### Family 4 — Agent & Protocol Attacks (→ L4/L6/L7)
 
@@ -47,8 +47,8 @@ Grouped by technique family. The **MAESTRO layer** column is added by this skill
 | AITech-4.2 | Context Boundary Attacks | ASI06 Memory Injection | AML.T0051.002 | L3 |
 | AISubtech-4.2.1 | Context Window Exploitation | ASI06 | AML.T0051.002 | L3 (CE-T6) |
 | AISubtech-4.2.2 | Session Boundary Violation | ASI06 | AML.T0051.002 | L3 (CE-T7) |
-| AITech-4.3 | Protocol Manipulation | ASI02 Tool Misuse | AML.T0055 Plugin Compromise | L6 |
-| AISubtech-4.3.1 | Schema Inconsistencies | ASI02 | AML.T0055 | L6-T08 |
+| AITech-4.3 | Protocol Manipulation | ASI02 Tool Misuse | AML.T0110 AI Agent Tool Poisoning | L6 |
+| AISubtech-4.3.1 | Schema Inconsistencies | ASI02 | AML.T0110 AI Agent Tool Poisoning; AML.T0011.002 Poisoned AI Agent Tool | L6-T08 |
 | AISubtech-4.3.3 | Server Rebinding Attack | ASI03 Broken Authorization | AML.TA0006 Priv Esc | L6, L7 |
 | AISubtech-4.3.4 | Replay Exploitation | ASI06 | AML.TA0007 Persistence | L7-T02 |
 | AISubtech-4.3.5 | Capability Inflation | ASI03 | AML.TA0006 | L6, L7 |
@@ -74,10 +74,10 @@ Grouped by technique family. The **MAESTRO layer** column is added by this skill
 
 | ID | Name | OWASP | ATLAS | MAESTRO |
 |---|---|---|---|---|
-| AITech-7.1 | Reasoning Corruption | ASI01 Goal Hijacking | AML.T0048.001 Financial Impact | L4-T02 |
+| AITech-7.1 | Reasoning Corruption | ASI01 Goal Hijacking | AML.T0080 AI Agent Context Poisoning (impact: AML.T0048) | L4-T02 |
 | AITech-7.2 | Memory System Corruption | ASI06 Memory Injection | AML.T0051.002 | L3 |
 | AISubtech-7.2.2 | Memory Index Manipulation | ASI06 | AML.T0051.002 | L3 |
-| AITech-7.3 | Data Source Abuse and Manipulation | LLM03 Supply Chain | AML.T0010 Supply Chain | L3, L6 |
+| AITech-7.3 | Data Source Abuse and Manipulation | LLM03 Supply Chain | AML.T0010 AI Supply Chain Compromise | L3, L6 |
 | AISubtech-7.3.1 | Corrupted Third-Party Data | LLM03 | AML.T0010 | L6 |
 | AITech-7.4 | Token Manipulation | ASI03 Broken Authorization | AML.TA0006 Priv Esc | L7-T02 |
 | AISubtech-7.4.1 | Token Theft | ASI03 | AML.TA0006 | L7-T02 |
@@ -86,28 +86,28 @@ Grouped by technique family. The **MAESTRO layer** column is added by this skill
 
 | ID | Name | OWASP | ATLAS | MAESTRO |
 |---|---|---|---|---|
-| AITech-8.1 | Membership Inference | LLM02 Info Disclosure | AML.T0024 Invert/Infer Model | L2-T06 |
-| AISubtech-8.1.1 | Presence Detection | LLM02 | AML.T0024 | L2 |
+| AITech-8.1 | Membership Inference | LLM02 Info Disclosure | AML.T0024.000 Infer Training Data Membership | L2-T06 |
+| AISubtech-8.1.1 | Presence Detection | LLM02 | AML.T0024.000 Infer Training Data Membership | L2 |
 | AITech-8.2 | Data Exfiltration / Exposure | LLM06 Excessive Agency | AML.TA0009 Exfiltration | L6-T06 |
 | AISubtech-8.2.1 | Training Data Exposure | LLM02 | AML.TA0009 | L2, L3 |
 | AISubtech-8.2.2 | LLM Data Leakage | LLM02 | AML.TA0009 | L2 |
 | AITech-8.3 | Information Disclosure | LLM02 | AML.TA0009 | L6 |
 | AISubtech-8.3.1 | Tool Metadata Exposure | LLM02 | AML.TA0009 | L6 |
 | AISubtech-8.3.2 | System Information Leakage | LLM02 | AML.TA0009 | L1, L6 |
-| AITech-8.4 | Prompt/Meta Extraction | LLM07 Prompt Leakage | AML.T0051 Prompt Injection | L2, L4 |
+| AITech-8.4 | Prompt/Meta Extraction | LLM07 Prompt Leakage | AML.T0051 LLM Prompt Injection | L2, L4 |
 
 ### Family 9 — Code Execution, Evasion & Dependency Compromise (→ L5/L6)
 
 | ID | Name | OWASP | ATLAS | MAESTRO |
 |---|---|---|---|---|
-| AITech-9.1 | Model or Agentic System Manipulation | LLM03 Supply Chain | AML.T0010 Supply Chain | L2, L6 |
+| AITech-9.1 | Model or Agentic System Manipulation | LLM03 Supply Chain | AML.T0010 AI Supply Chain Compromise | L2, L6 |
 | AISubtech-9.1.1 | Code Execution | ASI05 Unexpected Code Execution* | AML.TA0005 Execution | L5-T01/T04 |
 | AISubtech-9.1.2 | Unauthorized/Unsolicited System Access | ASI03 Broken Authorization | AML.TA0006 Priv Esc | L7, L5 |
-| AISubtech-9.1.3 | Unauthorized/Unsolicited Network Access | ASI02 Tool Misuse | AML.T0058 Exfil via Tool | L6-T06 |
+| AISubtech-9.1.3 | Unauthorized/Unsolicited Network Access | ASI02 Tool Misuse | AML.T0086 Exfiltration via AI Agent Tool Invocation | L6-T06 |
 | AISubtech-9.1.4 | Injection Attacks (SQL, Command, etc.) | LLM05 Output Handling | AML.TA0005 Execution | L6 |
 | AISubtech-9.1.5 | Template Injection (SSTI) | LLM05 | AML.TA0005 | L6 |
-| AITech-9.2 | Detection Evasion | LLM01 Prompt Injection | AML.T0031 Evade ML Model | L8, L9 |
-| AISubtech-9.2.1 | Obfuscation Vulnerabilities | LLM01 | AML.T0031 | L8 |
+| AITech-9.2 | Detection Evasion | LLM01 Prompt Injection | AML.T0015 Evade AI Model | L8, L9 |
+| AISubtech-9.2.1 | Obfuscation Vulnerabilities | LLM01 | AML.T0068 LLM Prompt Obfuscation | L8 |
 | AISubtech-9.2.2 | Backdoors and Trojans | LLM04 Data Poisoning | AML.T0020 | L2 |
 | AITech-9.3 | Dependency / Plugin Compromise | LLM03 Supply Chain | AML.T0010 | L6-T04, L5 |
 | AISubtech-9.3.1 | Malicious Package / Tool Injection | LLM03 | AML.T0010 | L6 |
@@ -117,33 +117,33 @@ Grouped by technique family. The **MAESTRO layer** column is added by this skill
 
 | ID | Name | OWASP | ATLAS | MAESTRO |
 |---|---|---|---|---|
-| AITech-10.1 | Model Extraction | LLM10 Model Theft | AML.T0024 Invert/Infer | L2-T01 |
-| AISubtech-10.1.1 | API Query Stealing | LLM10 | AML.T0002 Inference API Access | L2, L6 |
-| AISubtech-10.1.2 | Weight Reconstruction | LLM10 | AML.T0024 | L2-T01 |
-| AISubtech-10.1.3 | Sensitive Data Reconstruction | LLM02 Info Disclosure | AML.T0024 | L2, L3 |
-| AITech-10.2.1 | Model Inversion | LLM02 | AML.T0024 | L2-T06 |
-| AISubtech-10.2.1 | Model Inversion | LLM02 | AML.T0024 | L2-T06 |
+| AITech-10.1 | Model Extraction | LLM10 Model Theft | AML.T0024.002 Extract AI Model | L2-T01 |
+| AISubtech-10.1.1 | API Query Stealing | LLM10 | AML.T0040 AI Model Inference API Access | L2, L6 |
+| AISubtech-10.1.2 | Weight Reconstruction | LLM10 | AML.T0024.002 Extract AI Model | L2-T01 |
+| AISubtech-10.1.3 | Sensitive Data Reconstruction | LLM02 Info Disclosure | AML.T0024.001 Invert AI Model | L2, L3 |
+| AITech-10.2.1 | Model Inversion | LLM02 | AML.T0024.001 Invert AI Model | L2-T06 |
+| AISubtech-10.2.1 | Model Inversion | LLM02 | AML.T0024.001 Invert AI Model | L2-T06 |
 
 ### Family 11 — Environment-Aware / Selective Evasion (→ L8)
 
 | ID | Name | OWASP | ATLAS | MAESTRO |
 |---|---|---|---|---|
-| AITech-11.1 | Environment-Aware Evasion | LLM01 Prompt Injection | AML.T0031 Evade ML Model | L8 |
-| AISubtech-11.1.1 | Agent-Specific Evasion | ASI01 Goal Hijacking | AML.T0031 | L8 |
-| AISubtech-11.1.2 | Tool-Scoped Evasion | ASI02 Tool Misuse | AML.T0031 | L6, L8 |
-| AISubtech-11.1.3 | Environment-Scoped Payloads | LLM01 | AML.T0031 | L8 |
-| AISubtech-11.1.4 | Defense-Aware Payloads | LLM01 | AML.T0031 | L8, L9 |
-| AITech-11.2 | Model-Selective Evasion *(OCR-repaired)* | LLM01 | AML.T0031 | L8 |
-| AISubtech-11.2.1 | Targeted Model Fingerprinting | LLM01 | AML.T0002 Inference API Access | L2, L6 |
-| AISubtech-11.2.2 | Conditional Attack Execution | LLM01 | AML.T0031 | L8 |
+| AITech-11.1 | Environment-Aware Evasion | LLM01 Prompt Injection | AML.T0097 Virtualization/Sandbox Evasion | L8 |
+| AISubtech-11.1.1 | Agent-Specific Evasion | ASI01 Goal Hijacking | AML.T0015 Evade AI Model | L8 |
+| AISubtech-11.1.2 | Tool-Scoped Evasion | ASI02 Tool Misuse | AML.T0053 AI Agent Tool Invocation | L6, L8 |
+| AISubtech-11.1.3 | Environment-Scoped Payloads | LLM01 | AML.T0097 Virtualization/Sandbox Evasion | L8 |
+| AISubtech-11.1.4 | Defense-Aware Payloads | LLM01 | AML.T0015 Evade AI Model | L8, L9 |
+| AITech-11.2 | Model-Selective Evasion *(OCR-repaired)* | LLM01 | AML.T0015 Evade AI Model | L8 |
+| AISubtech-11.2.1 | Targeted Model Fingerprinting | LLM01 | AML.T0040 AI Model Inference API Access | L2, L6 |
+| AISubtech-11.2.2 | Conditional Attack Execution | LLM01 | AML.T0094 Delay Execution of LLM Instructions | L8 |
 
 ### Family 12 — Tool Exploitation & Output Handling (→ L6)
 
 | ID | Name | OWASP | ATLAS | MAESTRO |
 |---|---|---|---|---|
-| AITech-12.1 | Tool Exploitation | ASI02 Tool Misuse | AML.T0058 Exfil via Tool | L6-T04 |
-| AISubtech-12.1.1 | Parameter Manipulation | ASI02 | AML.T0058 | L6 |
-| AISubtech-12.1.2 | Tool Poisoning | ASI02 | AML.T0055 Plugin Compromise | L6-T08 |
+| AITech-12.1 | Tool Exploitation | ASI02 Tool Misuse | AML.T0053 AI Agent Tool Invocation | L6-T04 |
+| AISubtech-12.1.1 | Parameter Manipulation | ASI02 | AML.T0086 Exfiltration via AI Agent Tool Invocation | L6 |
+| AISubtech-12.1.2 | Tool Poisoning | ASI02 | AML.T0110 AI Agent Tool Poisoning; AML.T0011.002 Poisoned AI Agent Tool | L6-T08 |
 | AISubtech-12.1.3 | Unsafe System/Browser/File Execution | ASI05 Unexpected Code Execution* | AML.TA0005 Execution | L5, L6 |
 | AITech-12.2 | Insecure Output Handling | LLM05 Output Handling | AML.TA0005 | L6, L4 |
 | AISubtech-12.2.1 | Code Detection / Malicious Code Output | LLM05 | AML.TA0005 | L6 |
@@ -152,7 +152,7 @@ Grouped by technique family. The **MAESTRO layer** column is added by this skill
 
 | ID | Name | OWASP | ATLAS | MAESTRO |
 |---|---|---|---|---|
-| AITech-13.1 | Disruption of Availability | LLM10 Unbounded Consumption | AML.T0029 Denial of Service | L1-T03 |
+| AITech-13.1 | Disruption of Availability | LLM10 Unbounded Consumption | AML.T0029 Denial of AI Service | L1-T03 |
 | AISubtech-13.1.1 | Compute Exhaustion | LLM10 | AML.T0029 | L1-T03 |
 | AISubtech-13.1.2 | Memory Flooding | LLM10 | AML.T0029 | L1, L3 |
 | AISubtech-13.1.3 | Model Denial of Service | LLM10 | AML.T0029 | L2, L1 |
@@ -187,16 +187,59 @@ Representative entries (full list preserved from source): Harmful Content (15.1)
 | AITech-18.1 | Fraudulent Use | LLM06 Excessive Agency | AML.TA0005 Execution | L6, L10 |
 | AISubtech-18.1.1 | Spam / Scam / Social Engineering Generation | LLM09 Misinformation | AML.T0048 External Harms | L8 |
 | AITech-18.2 | Malicious Workflows | ASI01 Goal Hijacking | AML.TA0005 | L4 |
-| AISubtech-18.2.1 | Abuse of APIs for Mass Automation | LLM10 Unbounded Consumption | AML.T0029 DoS | L1, L6 |
+| AISubtech-18.2.1 | Abuse of APIs for Mass Automation | LLM10 Unbounded Consumption | AML.T0029 Denial of AI Service | L1, L6 |
 | AISubtech-18.2.2 | Dedicated Malicious Server / Infrastructure | LLM06 Excessive Agency | AML.TA0005 | L6 |
 | AITech-19.1 | Cross-Modal Inconsistency Exploitation | ASI05 Multi-modal Poisoning | AML.T0051.001 | L2, L3 |
 | AISubtech-19.1.1 | Contradictory Inputs Attack | ASI05 | AML.T0051.001 | L3 (CE-T3) |
-| AISubtech-19.1.2 | Modality Skewing | ASI05 | AML.T0031 Evade | L2 |
+| AISubtech-19.1.2 | Modality Skewing | ASI05 | AML.T0015 Evade AI Model | L2 |
 | AITech-19.2 | Fusion Payload Split | ASI05 | AML.T0051.001 | L3 |
 | AISubtech-19.2.1 | Convergence Payload Injection | ASI05 | AML.T0051.001 | L3 |
 | AISubtech-19.2.2 | Chained Payload Execution | ASI01 Goal Hijacking | AML.TA0005 Execution | L4, L6 |
 
 *\* ASI05 label note: the source labels ASI05 as both "Multi-modal Poisoning" (Family 1, 17, 19) and "Unexpected Code Execution" (9.1.1, 12.1.3). The OWASP Agentic Top 10 in `framework-crosswalk.md` uses ASI05 = Unexpected Code Execution. Treat the multi-modal entries' ASI05 tag with suspicion — they likely predate a renumbering. Left as-given pending reconciliation.*
+
+---
+
+### Addendum — ATLAS agentic techniques (2026) not in the source taxonomy
+
+The source taxonomy predates ATLAS's agent-tool techniques. These rows carry ATLAS IDs as primary (no `AITech-*` ID is minted for them) and point to the nearest source row where one exists. Names from `atlas-techniques.md` (ATLAS 5.6.0).
+
+| ATLAS | Name | Nearest source row | MAESTRO |
+|---|---|---|---|
+| AML.T0110 | AI Agent Tool Poisoning | AISubtech-12.1.2 Tool Poisoning | L6-T08 |
+| AML.T0011.002 | Poisoned AI Agent Tool (execution) | AISubtech-12.1.2 | L6-T04 |
+| AML.T0104 | Publish Poisoned AI Agent Tool | — | L6-T05, L1-T01 |
+| AML.T0109 | AI Supply Chain Rug Pull | AITech-9.3 dependency compromise rows | L6-T05, L5-T06 |
+| AML.T0111 | AI Supply Chain Reputation Inflation | — | L6-T05, L10-T04 |
+| AML.T0010.005 | AI Supply Chain Compromise: AI Agent Tool | AITech-9.3 | L6-T04, L1-T01 |
+| AML.T0010.004 | AI Supply Chain Compromise: Container Registry | AITech-9.3 | L5-T02, L1-T01 |
+| AML.T0053 | AI Agent Tool Invocation | AITech-12.1 Tool Exploitation | L4-T04, L6-T06 |
+| AML.T0086 | Exfiltration via AI Agent Tool Invocation | AISubtech-9.1.3, AISubtech-12.1.1 | L6-T06 |
+| AML.T0101 | Data Destruction via AI Agent Tool Invocation | — | L6-T06, L4-T07 |
+| AML.T0080 / .000 / .001 | AI Agent Context Poisoning (Memory, Thread) | AITech-7.1 Reasoning Corruption; Family 5 persistence rows | L3-T03, L3-T04 |
+| AML.T0070 | RAG Poisoning | Family 6 rows | L3-T01 |
+| AML.T0071 | False RAG Entry Injection | Family 6 rows | L3-T01 |
+| AML.T0066 | Retrieval Content Crafting | — | L3-T01 |
+| AML.T0064 | Gather RAG-Indexed Targets | — | L3 (reconnaissance) |
+| AML.T0105 | Escape to Host | Family 9 code-execution rows | L5-T01 |
+| AML.T0097 | Virtualization/Sandbox Evasion | AITech-11.1 Environment-Aware Evasion | L5-T04, L8 |
+| AML.T0112 / .000 | Machine Compromise (Local AI Agent) | — | L5, L1 |
+| AML.T0081 | Modify AI Agent Configuration | Family 5 persistence rows | L5-T03 |
+| AML.T0084 / .001 / .003 | Discover AI Agent Configuration (Tool Definitions, Call Chains) | — | L6, L5-T03 |
+| AML.T0083 | Credentials from AI Agent Configuration | Part 3 Family T-A | L7-T02 |
+| AML.T0098 | AI Agent Tool Credential Harvesting | Part 3 Family T-C | L7-T02, L6 |
+| AML.T0082 | RAG Credential Harvesting | Part 3 Family T-B | L7-T02, L3 |
+| AML.T0055 | Unsecured Credentials | Part 3 Family T-A | L7-T02, L1-T04 |
+| AML.T0103 | Deploy AI Agent | Part 3 Family T-H | L10-T01 |
+| AML.T0108 | AI Agent (Command and Control) | Part 3 Family T-E | L10-T01, L9 |
+| AML.T0056 | Extract LLM System Prompt | AITech-8.x disclosure rows | L2, L3-T05 |
+| AML.T0057 | LLM Data Leakage | AITech-8.x | L3, L6-T06 |
+| AML.T0077 | LLM Response Rendering | AITech-12.x output handling rows | L6-T07, L6-T06 |
+| AML.T0067 / .000 | LLM Trusted Output Components Manipulation (Citations) | — | L6-T07 (PB-H relay) |
+| AML.T0092 | Manipulate User LLM Chat History | — | L9-T04, L3-T03 |
+| AML.T0094 | Delay Execution of LLM Instructions | AISubtech-11.2.2 Conditional Attack Execution | L8, L4 |
+| AML.T0051.002 | LLM Prompt Injection: Triggered | AISubtech-1.4.x | L2-T03, L3-T04 |
+| AML.T0031 | Erode AI Model Integrity (impact; formerly the evasion ID) | — | L2-T05, L8 |
 
 ---
 
@@ -216,25 +259,25 @@ The three FAIR-CAM functional domains:
 | Prevention · Avoidance | Access privileges restrict access to sensitive info | ASI03 Broken Authorization | AML.TA0006 | L7 |
 | Prevention · Avoidance | Restrict groups with access to sensitive info | ASI03 | AML.TA0006 | L7 |
 | Prevention · Avoidance | Secure hosted info behind reCaptcha v3 | LLM10 Unbounded Consumption | AML.T0029 | L1 |
-| Prevention · Avoidance | Secondary verification for new accounts | ASI03 | AML.T0004 Reconnaissance | L7 |
-| Prevention · Deterrence | Audit logs retained for 180 days | LLM08 Insecure Output Handling† | AML.T0031 | L9 |
+| Prevention · Avoidance | Secondary verification for new accounts | ASI03 | AML.T0012 Valid Accounts | L7 |
+| Prevention · Deterrence | Audit logs retained for 180 days | LLM08 Insecure Output Handling† | AML.T0015 Evade AI Model | L9 |
 | Prevention · Resistance | Browser-level protection vs sensitive-data publishing | LLM02 Sensitive Info Disclosure | AML.TA0009 | L8 |
 | Prevention · Resistance | Endpoint-level protection vs sensitive-data publishing | LLM02 | AML.TA0009 | L8 |
 | Prevention · Resistance | Network-level protection vs sensitive-data publishing | LLM02 | AML.TA0009 | L1, L8 |
 | Prevention · Resistance | DLP solution enforces data classification policy | LLM02 | AML.TA0009 | L8, L3 |
 | Prevention · Resistance | GenAI prompt and metadata collection disabled *(OCR-repaired)* | LLM07 Prompt Leakage | AML.T0051 | L3, L9 |
-| Prevention · Resistance | Access to plugins and extensions restricted | ASI02 Tool Misuse | AML.T0055 Plugin Compromise | L6 |
+| Prevention · Resistance | Access to plugins and extensions restricted | ASI02 Tool Misuse | AML.T0053 AI Agent Tool Invocation | L6 |
 | Prevention · Resistance | AES-256 encryption for data at rest | LLM02 | AML.TA0009 | L1, L3 |
 | Prevention · Resistance | DDoS protection implemented | LLM10 | AML.T0029 | L1 |
-| Prevention · Resistance | robots.txt restricts proprietary data | LLM02 | AML.T0004 | L1 |
+| Prevention · Resistance | robots.txt restricts proprietary data | LLM02 | AML.T0003 Search Victim-Owned Websites | L1 |
 | Prevention · Resistance | Rate limiting for Internet-exposed apps | LLM10 | AML.T0029 | L1, L4 |
-| Detection · Visibility | Intrusion detection for GenAI applications | LLM01 Prompt Injection | AML.T0031 | L9 |
+| Detection · Visibility | Intrusion detection for GenAI applications | LLM01 Prompt Injection | AML.T0015 Evade AI Model | L9 |
 | Detection · Monitoring | Ensure monitoring of bots | ASI07 Insecure Agent Comm | AML.T0051.002 | L9 |
-| Detection · Monitoring | No unauthenticated public data repository | LLM02 | AML.T0004 | L1, L7 |
+| Detection · Monitoring | No unauthenticated public data repository | LLM02 | AML.T0064 Gather RAG-Indexed Targets; AML.T0003 Search Victim-Owned Websites | L1, L7 |
 | Response · Event Termination | Documented incident response process | ASI01 Goal Hijacking | AML.T0048 | L10 |
-| Response · Event Termination | Intrusion detection for Internet-exposed app | LLM01 | AML.T0031 | L9 |
-| Response · Event Termination | Data scraping prevention techniques | LLM02 | AML.T0004 | L1 |
-| Response · Loss Reduction | Insurance for data compromise | ASI01 | AML.T0048.001 Financial Impact | L10 |
+| Response · Event Termination | Intrusion detection for Internet-exposed app | LLM01 | AML.T0015 Evade AI Model | L9 |
+| Response · Event Termination | Data scraping prevention techniques | LLM02 | AML.T0003 Search Victim-Owned Websites | L1 |
+| Response · Loss Reduction | Insurance for data compromise | ASI01 | AML.T0048.000 Financial Harm | L10 |
 | Response · Loss Reduction | Cease-and-desist policy for deletion of info | LLM02 | AML.T0048 | L10 |
 
 ### Variance Management Controls
@@ -249,7 +292,7 @@ The three FAIR-CAM functional domains:
 | Identification · Monitoring | User access review performed periodically | ASI03 | AML.TA0006 | L7 |
 | Identification · Monitoring | Inventory of permitted GenAI applications | LLM03 | AML.T0010 | L10 |
 | Identification · Monitoring | Inventory of sensitive information | LLM02 | AML.TA0009 | L3, L10 |
-| Identification · Monitoring | Application vulnerability testing (periodic) | LLM01 | AML.T0031 | L5, L8 |
+| Identification · Monitoring | Application vulnerability testing (periodic) | LLM01 | AML.T0015 Evade AI Model | L5, L8 |
 | Identification · Monitoring | Monitor user behavior for bot behavior | ASI07 | AML.T0051.002 | L9 |
 | Correction · Implementation | Revoke overly permissive user access | LLM06 Excessive Agency | AML.TA0005 | L7 |
 | Correction · Implementation | Update misconfigurations and vulnerabilities | LLM05 Output Handling | AML.TA0005 | L5 |
@@ -262,14 +305,14 @@ The three FAIR-CAM functional domains:
 |---|---|---|---|---|
 | Prevention · Expectations | Acceptable Use Policy exists for GenAI | LLM09 Misinformation | AML.T0048 | L10 |
 | Prevention · Expectations | Data classification policy documented | LLM02 | AML.TA0009 | L10, L3 |
-| Prevention · Awareness | Risk analysis | ASI01 Goal Hijacking | AML.T0031 | L10 |
+| Prevention · Awareness | Risk analysis | ASI01 Goal Hijacking | AML.T0031 Erode AI Model Integrity | L10 |
 | Prevention · Awareness | Reporting of incidents to executive and board | LLM08 Insecure Output Handling† | AML.T0048 | L10 |
 | Prevention · Incentives | Ensure publicly available code includes licenses | LLM03 Supply Chain | AML.T0010 | L10 |
 | Misaligned Decisions · Analysis | Root cause analysis reviewed | ASI01 | AML.T0048 | L10 |
 
 ### Using the control library in an assessment
 
-In a Section 8 per-threat block's **Recommended Mitigations** field, you can pair the MAESTRO per-layer guidance with a concrete FAIR-CAM control and its function class. Example: for an `L7-T02` credential-theft finding, cite "Ensure credential rotation is performed regularly (FAIR-CAM VMC · Correction)" and "Revoke access to compromised credentials (VMC · Correction)" alongside the MAESTRO mitigation. The FAIR-CAM function (Prevention / Detection / Response, or Variance / Decision) maps onto MAESTRO's preventive/detective/corrective taxonomy and onto the OWASP playbooks' Proactive/Reactive/Detective tagging.
+In a Section 9 per-threat block's **Recommended Mitigations** field, you can pair the MAESTRO per-layer guidance with a concrete FAIR-CAM control and its function class. Example: for an `L7-T02` credential-theft finding, cite "Ensure credential rotation is performed regularly (FAIR-CAM VMC · Correction)" and "Revoke access to compromised credentials (VMC · Correction)" alongside the MAESTRO mitigation. The FAIR-CAM function (Prevention / Detection / Response, or Variance / Decision) maps onto MAESTRO's preventive/detective/corrective taxonomy and onto the OWASP playbooks' Proactive/Reactive/Detective tagging.
 
 ---
 
@@ -386,11 +429,13 @@ An adversary forges a trust assertion or abuses the onboarding/registration path
 
 These threats are the right lens when the evidenced system has **persistent agent identity, delegated authority, long-lived sessions/tokens, cross-agent or cross-tenant trust, or trust/reputation scoring**. Workflow:
 
-1. Establish the MAESTRO layer threat first (Section 8 stays keyed on `L<n>-T<nn>`).
+1. Establish the MAESTRO layer threat first (Section 9 stays keyed on `L<n>-T<nn>`).
 2. Where a Part 3 row matches, cite the threat name + its ASI / ATLAS-tactic tags parenthetically (the same way `framework-crosswalk.md` cites OWASP `T<n>`), and pull the AICM control(s) and ISO clause(s) into the finding.
 3. Use the named AICM control(s) as a Step 4 mitigation source — pair with the FAIR-CAM function class from Part 2 (Prevention / Detection / Response) and the MAESTRO per-layer guidance. Family T-E/T-F threats are predominantly **detective/corrective**; Family T-A/T-G are predominantly **preventive**.
 4. For findings centered on behavioral drift, sub-agent delegation, or cross-org agent trust, treat `LOG-16 (Proposed …)` as a placeholder for a not-yet-canonical control: name the structural AICM gap (per `ssrm-ownership.md` §"Six categories of AICM gap") rather than over-claiming coverage, and reconcile any control ID against the authoritative AICM v1.1 catalog before audit-grade citation (per the caveat above and SKILL.md rule 6).
 ## Source caveats
+
+**ATLAS reconciliation (2026-09-29, against ATLAS 5.6.0).** Six IDs in the source carried names that did not match the release and were re-IDed by intent: T0055 "Plugin Compromise" → T0110/T0011.002/T0053; T0058 "Exfil via Tool" → T0086/T0053; T0002 "Inference API Access" → T0040; T0024 sharpened to .000/.001/.002; T0004 "Reconnaissance" → T0003/T0064/T0012; T0048.001 "Financial Impact" → T0048.000 (row 237) and T0080 (row 77). T0031 was renamed upstream to Erode AI Model Integrity; the evasion rows now cite T0015 (or T0068/T0097/T0094/T0053 where the row is specific) and T0031 stays only on the risk-analysis control. Re-run `scripts/refresh_atlas.py --check-only` after any edit.
 
 **OCR splices repaired (3).** The string "Loss Event Control (LEC) Functions" was spliced mid-word into three source cells. Each was reconstructed unambiguously from the surrounding letters and is marked *(OCR-repaired)* inline:
 - `AITech-11.2`: "Model-Se…tive Evasion" → **Model-Selective Evasion**

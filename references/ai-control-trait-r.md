@@ -1,6 +1,6 @@
 # AI Control — TRAIT&R & Capability-Gated Mitigation (inverted-adversary lens)
 
-Load this reference when the assessment scope includes **insider-threat, misalignment, or untrusted-internal-deployment** concerns — i.e. when the threat actor under consideration is the **AI system itself**, not an external attacker acting on it. This is the inverse of the rest of the skill. Use it alongside MAESTRO, not instead of it.
+Load this reference when the assessment scope includes **insider-threat, misalignment, or untrusted-internal-deployment** concerns — i.e. when the threat actor under consideration is the **AI system itself**, not an external attacker acting on it. This is the inverse of the rest of the skill. Use it alongside MAESTRO, not instead of it. Under skill rule 9 this lens is mandatory once that scope is referenced in the evidence or the request; results are recorded in Section 10.5.
 
 **Source.** *GDM AI Control Roadmap (v0.1)*, Phuong, Jenner, Simon, Ho, Shah, Farquhar & Coull (Google DeepMind, June 2026). The taxonomy is **TRAIT&R** — a *Taxonomy of Rogue AI Tactics and Routines*, built on MITRE ATT&CK. Quantitative assurance targets cited below (coverage, time-to-response, exploit-rate thresholds) come from that document's Tables 14–15 and §3.6; they are GDM's internal operational calibration, not portable framework constants — cite the source, do not present them as general standards.
 
@@ -23,7 +23,7 @@ TRAIT&R treats the AI system as the **adversary**: the threat actor is the inter
 
 MAESTRO already reserves this quadrant but leaves it under-specified. The **L8 (Safety & Security)** layer states plainly that "an agent can be perfectly secure — authenticated, encrypted, authorized — and still cause harm through misaligned behavior." TRAIT&R is what populates that socket. Secondary anchors: **L10** (the rogue-agent / governance surface, L10-T01), **L9** (the detection apparatus), **L4/L7** (delegation chains and autonomy the misaligned agent abuses).
 
-When this lens fires, keep MAESTRO `L<n>-T<nn>` IDs primary in Section 8 and cite the TRAIT&R objective/tactic parenthetically — the same secondary-lens discipline used for OWASP `T<n>` and `AITech-*`.
+When this lens fires, keep MAESTRO `L<n>-T<nn>` IDs primary in Section 9 and cite the TRAIT&R objective/tactic parenthetically — the same secondary-lens discipline used for OWASP `T<n>` and `AITech-*`.
 
 ---
 

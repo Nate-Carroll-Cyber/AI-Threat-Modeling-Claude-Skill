@@ -150,7 +150,7 @@ The Agent 3SRM varies across agent deployment models. **Identify which model app
 
 ## How to assign ownership in an assessment
 
-For each threat in Section 8 of the output:
+For each threat in Section 9 of the output:
 
 1. Look up the layer in the matrix above.
 2. Read off the Primary and Shared owners. Include the Tool Provider where it materially applies (especially L6 threats involving MCP or external tools).
@@ -163,7 +163,7 @@ For each threat in Section 8 of the output:
 
 ## Contractual considerations (3SRM §6.2)
 
-When the assessment touches procurement, vendor management, or contract review (which it often does, indirectly), the 3SRM identifies five contractual implications worth flagging in Section 12 (Required Validation Steps):
+When the assessment touches procurement, vendor management, or contract review (which it often does, indirectly), the 3SRM identifies five contractual implications worth flagging in Section 14 (Required Validation Steps):
 
 - **AI-CAIQ as contractual baseline.** Use AI-CAIQ questionnaire responses as contractual annexes establishing provider commitments to specific AICM controls.
 - **Shared Responsibility Addenda.** Explicitly map provider responsibilities to 3SRM layers and AICM control ownership designations in contracts.

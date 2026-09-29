@@ -1,20 +1,20 @@
 # Framework Crosswalk
 
-Load this reference **only when the user requests** mapping to one of: STRIDE, MITRE ATLAS, OWASP LLM Top 10, OWASP Agentic AI Top 10, OWASP Agentic Skills Top 10 (AST01–AST10), OWASP MCP Top 10 (MCP01–MCP10), NIST AI RMF, or a cloud-provider AI security framework. MAESTRO is the primary spine; these are secondary lenses.
+Load this reference **only when the user requests** mapping to one of: STRIDE, PHANTOM-B (the STRIDE analog for LLMs), MITRE ATLAS, OWASP LLM Top 10, OWASP Agentic AI Top 10, OWASP Agentic Skills Top 10 (AST01–AST10), OWASP MCP Top 10 (MCP01–MCP10), NIST AI RMF, or a cloud-provider AI security framework. MAESTRO is the primary spine; these are secondary lenses.
 
 **Source**: MAESTRO v2.0, Section 12.
 
 ---
 
-## When to include Section 11 (Framework Crosswalk) in the output
+## When to include Section 13 (Framework Crosswalk) in the output
 
 Include if the user:
-- Explicitly names another framework ("map this to ATLAS", "give me OWASP Agentic Top 10 alignment", "map to the OWASP T1–T15 agentic threats / playbooks")
+- Explicitly names another framework ("map this to ATLAS", "give me OWASP Agentic Top 10 alignment", "map to the OWASP T1–T15 agentic threats / playbooks", "run PHANTOM-B on the LLM parts")
 - Is in a compliance context where multiple frameworks are required (audit, vendor questionnaire)
 - Has an existing security program built on STRIDE or another lens and is adding MAESTRO
 - Requests the **full crosswalk** — any of "full framework crosswalk", "crosswalk to everything", "all frameworks", "every framework" (see "Full crosswalk mode" below)
 
-Otherwise omit. Don't pad the output with crosswalks the user didn't ask for. The default — no Section 11 at all — is correct for the majority of assessments; crosswalks are a secondary lens that compete with the MAESTRO spine for the reader's attention, so they appear only on request.
+Otherwise omit. Don't pad the output with crosswalks the user didn't ask for. The default — no Section 13 at all — is correct for the majority of assessments; crosswalks are a secondary lens that compete with the MAESTRO spine for the reader's attention, so they appear only on request.
 
 ### Scope of a single-framework request
 
@@ -22,19 +22,20 @@ When the user names one framework, emit only that subsection. Do not opportunist
 
 ### Full crosswalk mode (opt-in, off by default)
 
-When — and only when — the user explicitly asks for all frameworks (the trigger phrases above), emit the complete Section 11 with all eight subsections in this fixed order:
+When — and only when — the user explicitly asks for all frameworks (the trigger phrases above), emit the complete Section 13 with all nine subsections in this fixed order:
 
-1. **11.1 STRIDE**
-2. **11.2 MITRE ATLAS**
-3. **11.3 OWASP LLM Top 10**
-4. **11.4 OWASP Agentic AI Top 10 (ASI01–ASI10)**
-5. **11.5 OWASP Agentic Threats & Mitigations (T1–T15)** — with the matching mitigation playbook cited per row
-6. **11.6 OWASP Agentic Skills Top 10 (AST01–AST10)** — only populated when a skill-installation surface is evidenced; otherwise the subsection states in one line that no third-party skill/plugin loading surface is evidenced and is not padded
-7. **11.7 OWASP MCP Top 10 (MCP01–MCP10)** — only populated when MCP is explicitly evidenced (rule 5); otherwise a one-line no-MCP-surface statement, not padded. Carries the beta + BY-NC-SA license caveats from `mcp-top10.md` whenever populated
-8. **11.8 NIST AI RMF** — lead with the Govern/Map/Measure/Manage function, pivot into the MAESTRO layer
+1. **13.1 STRIDE**
+2. **13.2 PHANTOM-B (STRIDE analog for LLMs)** — populated when an L2 LLM component is evidenced (nearly always); re-expresses Section 9 findings under the eight letters, one line per letter with no evidenced instance. Carries the CC-BY attribution and the no-mitigations design note from `phantom-b.md`
+3. **13.3 MITRE ATLAS**
+4. **13.4 OWASP LLM Top 10**
+5. **13.5 OWASP Agentic AI Top 10 (ASI01–ASI10)**
+6. **13.6 OWASP Agentic Threats & Mitigations (T1–T15)** — with the matching mitigation playbook cited per row
+7. **13.7 OWASP Agentic Skills Top 10 (AST01–AST10)** — only populated when a skill-installation surface is evidenced; otherwise the subsection states in one line that no third-party skill/plugin loading surface is evidenced and is not padded
+8. **13.8 OWASP MCP Top 10 (MCP01–MCP10)** — only populated when MCP is explicitly evidenced (rule 5); otherwise a one-line no-MCP-surface statement, not padded. Carries the beta + BY-NC-SA license caveats from `mcp-top10.md` whenever populated
+9. **13.9 NIST AI RMF** — lead with the Govern/Map/Measure/Manage function, pivot into the MAESTRO layer
 
 Rules for full crosswalk mode, all of which preserve the skill's evidence discipline:
-- **Map only the assessment's existing findings.** Each subsection re-expresses the Section 8 MAESTRO findings in the other framework's vocabulary. A crosswalk never introduces a new threat that Section 8 did not already establish on the evidence.
+- **Map only the assessment's existing findings.** Each subsection re-expresses the Section 9 MAESTRO findings in the other framework's vocabulary. A crosswalk never introduces a new threat that Section 9 did not already establish on the evidence.
 - **Omit empty cells; do not pad.** If the system has no evidenced threat for a given framework category, leave that row out rather than writing "N/A". State explicitly where a whole technique class is not mapped and why (e.g. "model-extraction techniques not mapped — no training/fine-tuning surface evidenced").
 - **MAESTRO `L<n>-T<nn>` stays the canonical ID** in every row; the external framework ID is the secondary column.
 - **Do not silently widen scope** beyond the standard external-attacker lenses. The TRAIT&R inverted-adversary lens is NOT part of the full crosswalk — it is a separate opt-in (`ai-control-trait-r.md`) with its own adversary direction and must not be folded into the ATLAS-keyed tables.
@@ -59,25 +60,65 @@ Example mappings:
 
 ---
 
+## MAESTRO + PHANTOM-B (STRIDE analog for LLMs)
+
+PHANTOM-B (Shostack + Associates, White Paper #6, July 2026; v1.0 Q3 2026; CC-BY) is an eight-letter mnemonic that does for the LLM component what STRIDE does for deterministic software: Prompt injection, Hallucination, Anthropomorphization, Non-explainability, Training issues, Over-reliance, Missing security engineering, Biases. It applies to the LLM subset of the data-flow diagram (prompt assembly plus inference) and hands everything else back to STRIDE. Full detail — design caveats, per-letter evidence checks, mitigation routing — lives in `references/phantom-b.md`.
+
+**Good at**: recall. Eight low-effort prompts that make the non-adversarial surfaces explicit — hallucination, anthropomorphization, explainability, over-reliance, bias — which MAESTRO's `L<n>-T<nn>` list reaches only through L8 components and L10 GRC controls. It is right-sized for the passive-chatbot case where MAESTRO is over-scoped. **Bad at**: placement and depth. It carries no layer model, no ownership model, and by design no mitigations, so it cannot say where in the stack a finding lives, who owns it, or what to do — that is what the MAESTRO spine, the 3SRM, and Step 4 supply. Its use here is a completeness check on L2, not a second spine.
+
+**Applicability**: populated whenever an L2 LLM component is evidenced. PB-P and PB-T re-express findings the assessment already has (L2-T03; L2-T02/L2-T04) and do not generate a second finding; the net-new rows are PB-H, PB-A, PB-N, PB-O, PB-B. Rows with no evidenced instance are one line, not padded.
+
+### PHANTOM-B → MAESTRO v2.0 mapping (summary)
+
+| PB | Threat | Adversary? | MAESTRO Layer / Threat |
+|---|---|---|---|
+| **PB-P** Prompt injection (direct / indirect / multi-stage) | Yes | L2-T03; L3-T04 / CE-T1 and L6-T04/L6-T08 for the indirect surface; L4-T02; L8-T01 |
+| **PB-H** Hallucination | No (inducible) | L2 reliability finding (no canonical ID); L8-T03 in agent chains; L6-T07 when it misleads a user into action |
+| **PB-A** Anthropomorphization | No | L2 system-prompt/persona surface (no canonical ID); L10 GRC-09; L6-T07 |
+| **PB-N** Non-explainability | No | L9-T04 (nearest); L10-T06; L9 logging substrate; GRC-13/14 |
+| **PB-T** Training issues (intentional / incidental) | Both | L2-T02, L2-T04, L2-T05; L1-T01 — not L3-T01 |
+| **PB-O** Over-reliance | No (amplifier) | L7-T03, L7-T04, L4-T07, L6-T06; LLM09; ASI09 |
+| **PB-M** Missing security engineering | Condition | Outside the LLM subset — STRIDE on the rest of the DFD; L5-T02, L1-T01, L10-T02/T03; Section 14 validation |
+| **PB-B** Biases | No | L2 behavioral finding (no canonical ID); L10-T06; GRC-11; L8 output validation |
+
+**How to cite in an assessment**: MAESTRO `L<n>-T<nn>` stays the canonical ID; add `PB-<letter>` parenthetically (`PB-*` is skill-local shorthand — the paper uses bare letters). For the three letters without a canonical L2-T ID, anchor to the layer as `maestro-layers.md` does for OWASP T16. Non-adversarial findings use `Failure mode (no adversary required): …` in the Attack Vector field. Mitigations are never attributed to PHANTOM-B; the paper ships none by design.
+
+---
+
 ## MAESTRO + MITRE ATLAS
 
 MITRE ATLAS is a knowledge base of adversarial tactics against ML systems organized by attack lifecycle stages. ATLAS provides the *attack techniques*; MAESTRO provides the *architectural context*.
 
 Example mappings:
 
-| ATLAS Tactic / Technique | MAESTRO Layer |
+| ATLAS Technique (ATLAS 5.6.0 IDs, from `atlas-techniques.md`) | MAESTRO Layer |
 |---|---|
-| ML Model Theft / ML Model Extraction | L2 (L2-T01) |
-| Poison Training Data | L3 (L3-T01); L2 (L2-T02 for training-time) |
-| Evade ML Model | L2 / L8 (L2-T03, L8-T01) |
-| LLM Prompt Injection | L2 / L4 (L2-T03, L4-T02) |
-| ML Supply Chain Compromise | L2 (L2-T04); L1 (L1-T01); L6 (L6-T04 for MCP server, L6-T05 for marketplace) |
-| Discover ML Model Family | L6 (information disclosure via tool/API surface) |
-| Exfiltration via ML Inference API | L6 (L6-T06); L2 (L2-T01 if extraction-style) |
+| AML.T0024 Exfiltration via AI Inference API — .002 Extract AI Model, .001 Invert AI Model, .000 Infer Training Data Membership | L2 (L2-T01 for .002; L2-T06 for .001/.000) |
+| AML.T0020 Poison Training Data; AML.T0018.000 Poison AI Model; AML.T0058 Publish Poisoned Models | L3 (L3-T01); L2 (L2-T02 training-time, L2-T04 for T0058) |
+| AML.T0015 Evade AI Model; AML.T0054 LLM Jailbreak; AML.T0068 LLM Prompt Obfuscation | L2 / L8 (L2-T03, L8-T01) |
+| AML.T0051 LLM Prompt Injection — .000 Direct, .001 Indirect, .002 Triggered | L2 / L4 (L2-T03, L4-T02); .001 and .002 also L3-T04 / CE-T1 (PB-P sub-types) |
+| AML.T0010 AI Supply Chain Compromise — .003 Model, .004 Container Registry, .005 AI Agent Tool | L2 (L2-T04); L1 (L1-T01); L5 (L5-T02 for .004); L6 (L6-T04 for .005) |
+| AML.T0014 Discover AI Model Family; AML.T0069 Discover LLM System Information; AML.T0084 Discover AI Agent Configuration (.001 Tool Definitions, .003 Call Chains) | L6 / L2 (information disclosure via tool/API surface); L5-T03 for T0084 |
+| AML.T0040 AI Model Inference API Access | L2 (L2-T01 if extraction-style); L6 |
+
+**Agentic techniques (added to ATLAS through 2026; all `realized` or `demonstrated`)**
+
+| ATLAS Technique | MAESTRO Layer | Also cited under |
+|---|---|---|
+| AML.T0110 AI Agent Tool Poisoning; AML.T0011.002 Poisoned AI Agent Tool | L6-T08, L6-T04 | MCP03; AST01 |
+| AML.T0104 Publish Poisoned AI Agent Tool; AML.T0109 AI Supply Chain Rug Pull; AML.T0111 AI Supply Chain Reputation Inflation | L6-T05, L1-T01 | MCP04; AST02, AST07 |
+| AML.T0053 AI Agent Tool Invocation; AML.T0086 Exfiltration via AI Agent Tool Invocation; AML.T0101 Data Destruction via AI Agent Tool Invocation | L4-T04, L6-T06, L4-T07 | MCP05, MCP06; OWASP T2 |
+| AML.T0080 AI Agent Context Poisoning — .000 Memory, .001 Thread | L3-T03, L3-T04 / CE-T1 | MCP10; OWASP T1 |
+| AML.T0070 RAG Poisoning; AML.T0071 False RAG Entry Injection; AML.T0066 Retrieval Content Crafting; AML.T0064 Gather RAG-Indexed Targets | L3-T01 | OWASP T18 |
+| AML.T0105 Escape to Host; AML.T0097 Virtualization/Sandbox Evasion; AML.T0112 Machine Compromise (.000 Local AI Agent) | L5-T01, L5-T04 | MCP05; OWASP T11 |
+| AML.T0081 Modify AI Agent Configuration; AML.T0083 Credentials from AI Agent Configuration; AML.T0098 AI Agent Tool Credential Harvesting; AML.T0082 RAG Credential Harvesting; AML.T0055 Unsecured Credentials | L5-T03, L7-T02 | MCP01; library Part 3 |
+| AML.T0103 Deploy AI Agent; AML.T0108 AI Agent (Command and Control) | L10-T01 | MCP09; OWASP T13 |
+| AML.T0056 Extract LLM System Prompt; AML.T0057 LLM Data Leakage; AML.T0077 LLM Response Rendering; AML.T0067.000 Citations manipulation | L2 / L3 disclosure; L6-T07 | LLM07; PB-H for T0067 |
+| AML.T0092 Manipulate User LLM Chat History; AML.T0094 Delay Execution of LLM Instructions | L9-T04, L8 | OWASP T7 |
 
 **How to use in the assessment**: when an ATLAS technique applies, name the technique ID and the corresponding MAESTRO layer(s). Don't substitute MAESTRO for ATLAS — they're complementary.
 
-**For technique-level granularity**, load `references/threat-technique-and-control-library.md`, which expands this high-level mapping into ~140 `AITech-*`/`AISubtech-*` techniques (each tagged OWASP + ATLAS + MAESTRO layer) and a FAIR-CAM control library. Use it when the user wants finer attack-technique detail than MAESTRO's per-layer sample threats, or a structured control source for Step 4.
+**For technique-level granularity**, load `references/threat-technique-and-control-library.md`, which expands this high-level mapping into ~140 `AITech-*`/`AISubtech-*` techniques (each tagged OWASP + ATLAS + MAESTRO layer) and a FAIR-CAM control library. Technique names are taken from `references/atlas-techniques.md` (generated from the current ATLAS release); cite sub-technique IDs wherever ATLAS has them. Use it when the user wants finer attack-technique detail than MAESTRO's per-layer sample threats, or a structured control source for Step 4.
 
 ---
 
@@ -131,7 +172,7 @@ When citing OWASP Agentic risks in the assessment, include all three coordinates
 
 **This is a distinct OWASP artifact from the ASI01–ASI10 Top 10 above.** The Top 10 (previous section) is a prioritized risk list; the T1–T15 taxonomy below is OWASP's *threat-and-mitigations* model, paired with a six-step **Agentic Threat Decision Path** and six **Mitigation Playbooks**. Both come from the OWASP Agentic Security Initiative; they overlap but are not identical and use different numbering. When a user references "the OWASP agentic threats" without specifying, clarify which they mean — or map against both. Do not conflate the `T<n>` IDs here with MAESTRO's `L<n>-T<nn>` IDs; they are independent numbering systems.
 
-Use this taxonomy as a **secondary lens**. MAESTRO remains the spine: every T-threat below is expressed as one or more MAESTRO layer threats, and the assessment's Section 8 should continue to use MAESTRO `L<n>-T<nn>` IDs as primary, citing the OWASP `T<n>` ID parenthetically where the user wants OWASP alignment.
+Use this taxonomy as a **secondary lens**. MAESTRO remains the spine: every T-threat below is expressed as one or more MAESTRO layer threats, and the assessment's Section 9 should continue to use MAESTRO `L<n>-T<nn>` IDs as primary, citing the OWASP `T<n>` ID parenthetically where the user wants OWASP alignment.
 
 ### T1–T15 → MAESTRO mapping
 
@@ -168,7 +209,7 @@ OWASP organizes T1–T15 behind a six-question decision path. It is a useful *tr
 
 ### The six mitigation playbooks
 
-When the user wants OWASP-aligned remediation, draw recommended mitigations from the matching playbook and express them as concrete controls in the Section 8 "Recommended Mitigations" field. Each playbook tags its measures as **Proactive**, **Reactive**, or **Detective** — preserve that tagging, it maps cleanly onto MAESTRO's preventive/detective/corrective control taxonomy.
+When the user wants OWASP-aligned remediation, draw recommended mitigations from the matching playbook and express them as concrete controls in the Section 9 "Recommended Mitigations" field. Each playbook tags its measures as **Proactive**, **Reactive**, or **Detective** — preserve that tagging, it maps cleanly onto MAESTRO's preventive/detective/corrective control taxonomy.
 
 - **Playbook 1 — Preventing Agent Reasoning Manipulation.** Mitigates T6, T8. Attack-surface reduction + behavior profiling (proactive); goal-consistency validation, goal-modification-frequency tracking, anti-self-reinforcement constraints (reactive); cryptographic/immutable decision logging, real-time anomaly detection on decision workflows, logging of human overrides and high-risk decision reversals (detective). → MAESTRO L4, L8, L9.
 - **Playbook 2 — Preventing Memory Poisoning & Knowledge Corruption.** Mitigates T1, T5. Trusted-source-only persistence with cryptographic validation, memory-access logging, session isolation, context-aware retrieval limits, source attribution (proactive); anomaly detection on memory logs, multi-agent/external validation before persistent commits, rollback to validated states, forensic snapshots, probabilistic truth-checking (reactive); cross-agent validation, knowledge-lineage tracking, version control on knowledge updates (detective). → MAESTRO L3, CE-T1–T7, L8.
@@ -270,7 +311,7 @@ This ensures CSP-native controls are positioned within the broader threat model 
 When asked for a holistic security-program recommendation, refer the user to this stack from MAESTRO §12.7:
 
 - **Governance Layer**: NIST AI RMF (primary governance lens). Management-system standards (e.g. AI- and infosec-management standards) may be layered in by organizations that require them, but are out of scope for this skill.
-- **Threat Modeling**: MAESTRO (primary), STRIDE (supplementary)
+- **Threat Modeling**: MAESTRO (primary), STRIDE (supplementary for non-LLM components), PHANTOM-B (supplementary for the LLM component; CC-BY)
 - **Attack Knowledge Base**: MITRE ATLAS
 - **Application Security**: OWASP LLM Top 10, OWASP Agentic AI Top 10
 - **Skill / Behavior-Layer Supply Chain**: OWASP Agentic Skills Top 10 (AST01–AST10)
