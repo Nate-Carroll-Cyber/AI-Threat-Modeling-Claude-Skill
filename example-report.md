@@ -1,635 +1,890 @@
-# AI Threat Model Assessment — Example Report (SEC545 Beta MCP Multi-Server Lab)
+# MAESTRO v2.0 Threat Model Assessment: cloudflare/mcp-server-cloudflare
 
-**Framework:** MAESTRO v2.0 (Cloud Security Alliance, Apr 2026)
-**Method:** AI Threat Model Analyst skill — evidence-gated, layered.
-**Evidence base:** The 14-question filled MAESTRO Threat Assessment worksheet ("Best Practice Answers"), dated 2/13/26, plus the named system artifacts it references.
-**Evidence-gating rule:** All findings are gated on that worksheet. Items the worksheet does not support are marked **Unanswerable from current evidence** and the artifacts needed are listed, rather than inferred.
-
----
+Assessed artifact: https://github.com/cloudflare/mcp-server-cloudflare at commit `1d7a16b` (2026-09-25). Assessment date 2026-09-29. Produced with the ai-threat-models skill, package v7 (16-section format; rules 9 and 10 applied: every referenced lens run from its file, every citation verified with `scripts/verify_citations.py`). ATLAS IDs are ATLAS 5.6.0 from `references/atlas-techniques.md`. File references below are `path:line` at that commit; prefix with `https://github.com/cloudflare/mcp-server-cloudflare/blob/1d7a16b/` for a direct link.
 
 ## 1. Understanding Confirmed
 
-The request is for a full MAESTRO v2.0 threat assessment of the **SEC545 MCP multi-server lab** — a hands-on agentic AI lab environment composed of a GenAI application backend (`sec545-genaiapp`) fronted by a Model Context Protocol server cluster (`sec545-mcp-servers`), exposing filesystem, calendar, and multi-assistant query tools to one or more LLM agents. This is an agentic, tool-using, multi-agent system. MAESTRO is the correct framework; no down-scoping to a passive-LLM subset is warranted.
+The request is a MAESTRO v2.0 assessment of Cloudflare's public MCP server monorepo, which ships 18 remote MCP servers (14 OAuth-authenticated, 4 public) that expose Cloudflare product APIs, a browser-rendering fetcher, and a per-user code-execution container to any MCP client. MCP is the system, so the OWASP MCP Top 10 lens is active (skill rule 5). Every server assembles instructions and tool descriptions for a client-side LLM and several return LLM-generated text, so the PHANTOM-B lens runs on that L2 surface. No third-party skill installation surface exists, so the AST10 lens is inactive. No crosswalk (Section 13) was requested and none is emitted. TRAIT&R was not requested.
 
 ## 2. Scope and Assumptions
 
-In scope: the evidenced components of the lab — MCP server cluster, the GenAI app backend, the tool surface, the orchestration/agent layer, the credential/secret artifacts, and the deployment substrate (Docker Compose).
-
-- This assessment treats the lab as the unit of analysis. It is a **training lab**, not a production deployment; risk ratings reflect the architecture as built, not a hardened production posture.
-- **Deployment model:** the evidence (self-built agent app, self-hosted MCP servers, Docker Compose, own model/embedding configuration via `bedrock.tf`) indicates **Agent-as-Infrastructure (AaI)**. Agent Owner therefore maps to **AIC + AP + OSP** (+ MP for the embedding/inference config). Where a finding's ownership hinges on this, it is stated.
-- No control-effectiveness testing was performed; this is a design/architecture-evidence assessment, not a pentest.
-- The three-bucket discipline is enforced throughout: **Current Evidence** (facts), **Reasonable Inferences** (bounded), **Unknowns / Missing Evidence** (gaps). They are never blended.
+- Scope is the repository contents at `1d7a16b`. Runtime behavior of the Cloudflare-hosted endpoints, the `@cloudflare/workers-oauth-provider` library internals (KV props encryption, DCR policy), the `agents` MCP handler defaults, Cloudflare Containers isolation, and GitHub branch protection are not in the repo and are marked unanswerable where they matter.
+- The assessed deployment is the Cloudflare-hosted configuration described by `server.json` and the `production` env in each `wrangler.jsonc` (deployment account `6702657b...`, e.g. `apps/sandbox-container/wrangler.jsonc:130`). A self-hosted fork changes SSRM ownership (Section 12) but not the code findings.
+- The 3SRM deployment model (AaI / AaP / AaaS) is a property of the AIC's agent, which is outside the repo. The system under assessment is TaaS (tools delivered over MCP), so Tool Provider assignments are evidenced and AIC-side assignments are marked `Partial — depends on deployment model` per `ssrm-ownership.md`.
+- The LLM is the connecting client's model, outside the repo. PHANTOM-B findings therefore address the prompt-assembly surface the servers control (instructions, tool descriptions, returned content) and the two server-side LLM calls that are in scope (`ai_search`, `get_url_json`).
+- Cloudflare's upstream API enforces token authorization independently of this code. Findings about account scoping in this repo are defense-in-depth findings unless stated otherwise.
 
 ## 3. System Summary
 
-The SEC545 lab is a self-hosted agentic stack. A GenAI application (`assistants_server.py`, `langchain_agent.py`) orchestrates one or more LLM-backed assistants and reaches external capability through an MCP client (`mcp_client.py`) into a cluster of MCP servers (`sec545-mcp-servers`). The MCP tool surface is broad and high-privilege: a full filesystem toolset (`read_file`, `write_file`, `list_directory`, `create_directory`, `delete_file_or_directory`, `copy_file_or_directory`, `move_file_or_directory`, `get_file_info`, `search_files`, `get_current_directory`), arbitrary command execution (`execute_command`), Google Calendar tools (`authorize_calendar_user`, `list_events`, `create_event`, `delete_event`, `get_free_busy`), and a set of assistant-routing tools (`query_security_assistant`, `query_movies_assistant`, `query_investment_assistant`, `query_multi_agent_assistant`, `query_langchain_agent`, `query_any_assistant`, `get_backend_status`).
+The monorepo builds one Cloudflare Worker per app on shared code in `packages/mcp-common`. Each request constructs a fresh `McpServer` (`packages/mcp-common/src/server.ts:73`) over streamable HTTP at `/mcp` and `/sse` (`oauth-router.ts:28`); legacy SSE returns 410 (`transport-migration.ts:5-6`) and no stdio mode exists. Authentication wraps every non-public app in `@cloudflare/workers-oauth-provider` 0.10.3 (`oauth-router.ts:99-102`) with dynamic client registration at `/register` (`:100`), a 1-hour access token (`:101`) and a 30-day refresh token (`:102`); the upstream Cloudflare OAuth access and refresh tokens are stored in the grant props (`cloudflare-oauth-handler.ts:670-676`) and read by every tool (`props.accessToken`). A direct Cloudflare API token is accepted as a Bearer alternative and its verified identity is cached in `OAUTH_KV` for 30 days (`api-token-mode.ts:75, :100`).
 
-The system is **multi-agent**: a multi-agent assistant (`query_multi_agent_assistant`) routes across specialized sub-assistants, and a LangChain agent is independently reachable. Retrieval/knowledge grounding is present via a Weaviate vector store (`deploy_weaviate.sh`, `weaviate-client==4.4.1`) with an embedding model configured through `bedrock.tf` (`embedding_model_arn`, `access_policy`, `data_source_sync`). Secrets are file-resident: `client_secret.json` (Google OAuth), `.env` (`OPENAI_API_KEY`, `HUGGINGFACE_KEY`, `SERPAPI_API_KEY`), `users.json`, and a `.tokens` store. Deployment is via `docker-compose.yml`/`dockercompose.yml`; container user handling is partially evidenced (`USER appuser` appears, but its consistency across all services is not).
+The tool surface spans read-only analytics and configuration tools, six write-scoped apps (workers-bindings with `workers:write` and `d1:write`, browser-rendering, dex-analysis, logpush, radar URL scanner, autorag), a raw SQL tool (`d1_database_query`, `apps/workers-bindings/src/tools/d1.tools.ts:194`), a raw GraphQL tool (`graphql_query`, `apps/graphql/src/tools/graphql.tools.ts:991`), arbitrary-URL fetchers (13 browser-rendering tools), remote packet-capture commands issued to real end-user devices (`dex_create_remote_pcap`, `apps/dex-analysis/src/tools/dex-analysis.tools.ts:200`), and a per-user Alpine container with an unfiltered shell (`exec(execParams.args)`, `apps/sandbox-container/container/sandbox.container.app.ts:140`) and internet egress (`enableInternet: true`, `server/containerHelpers.ts:25-27`).
 
-**This is an agentic system** with tools, memory/retrieval, sub-agents, and autonomous tool invocation. Full MAESTRO scope applies.
+The system is agentic in the MAESTRO sense only on the tool side: it holds non-human credentials, executes actions on behalf of a model, and runs code. It has no orchestration, memory, or sub-agents of its own. L4 findings are limited to the human-in-the-loop surface; L3 findings are limited to the context the servers inject into the client.
 
 ## 4. Evidence Available
 
-Drawn directly from the worksheet and the artifacts it names:
-
-- **Tool surface (L6):** filesystem suite, `execute_command`, calendar suite, assistant-router suite — all enumerated above.
-- **MCP architecture (L6):** `sec545-mcp-servers` cluster, `mcp_client.py`, MCP transport configured via `TRANSPORT`/`HOST`/`PORT`/`BACKEND_URL`; worksheet indicates **stdio** transport in at least one path.
-- **Orchestration / agents (L4):** `assistants_server.py`, `langchain_agent.py`, `query_multi_agent_assistant`, `query_langchain_agent`.
-- **Retrieval / knowledge (L3):** Weaviate (`deploy_weaviate.sh`, `weaviate-client==4.4.1`), embedding config in `bedrock.tf`, `data_source_sync`, `context-engineering.md` referenced as a control artifact.
-- **Cognitive core (L2):** model/embedding configuration via `bedrock.tf` (`embedding_model_arn`); generation models reached via `OPENAI_API_KEY`/`HUGGINGFACE_KEY`.
-- **Identity / secrets (L7):** `client_secret.json`, `.env`, `users.json`, `.tokens`, `authorize_calendar_user`.
-- **Deployment (L5/L1):** `docker-compose.yml`, `requirements.txt`, `deploy_weaviate.sh`, `bedrock.tf` (IaC), partial `USER appuser` directive.
-- **Governance/secret-hygiene artifacts (L10/L9):** `.gitignore`, `check-keys.sh`, plus design notes `context-engineering.md`, `multi-agent-threats.md`, `proposed-aicm-extensions.md`, `output-templates.md`, `aicm-iso42001-mapping.md`.
+- Full source tree at `1d7a16b`, including `packages/mcp-common` (auth, transport, account scoping, metrics, Sentry), all 18 apps, `packages/eval-tools`, CI workflows, `server.json`, per-app READMEs, `implementation-guides/*`.
+- 143 vitest cases across the auth, transport, and account-scoping specs; 13 app spec files with zero cases; 5 eval files.
+- Step 1 inventory by `scripts/plan_subsystems.py`: 326 key files; `packages/mcp-common` (55 files, auth/telemetry/MCP signals), `apps/sandbox-container` (30, container/runtime), `apps/autorag` (11, RAG) isolated as distinct subsystems; the fourteen product apps share one auth-lead profile and were gathered as a group.
+- Every `path:line` citation below was checked with `scripts/verify_citations.py` against the clone (rule 10): 170 citations, 170 resolvable.
+- Deployment configuration in `wrangler.jsonc` per app (bindings, KV IDs, Sentry DSNs, container image tags, observability settings).
+- Not available: installed `node_modules`, runtime traffic, KV contents, GitHub repository settings, the Cloudflare Containers platform isolation model, the OAuth provider library's storage implementation.
 
 ## 5. Immediate Gaps / Missing Information
 
-The worksheet leaves several determinative items unsupported. These cap the confidence of dependent findings:
-
-- **Identity model for agents/tools (L7):** No evidence the MCP tools run under per-task, scoped, or short-lived identities. Whether `execute_command` and the filesystem tools execute with the same broad privilege as the agent is **Unanswerable from current evidence**.
-- **Authorization / tool-gating policy (L4/L7):** No evidence of an allow-list, human-in-the-loop gate, or per-tool authorization for destructive tools (`delete_file_or_directory`, `execute_command`). Worksheet marks the relevant question **Unanswerable**.
-- **Audit-grade logging (L9):** `check-keys.sh` and design notes exist, but no evidence of tamper-evident, retained, IR-queryable logs. Observability ≠ audit logging (skill rule #4). **Unanswerable.**
-- **Secret-at-rest protection (L7/L1):** Secrets are file-resident (`.env`, `client_secret.json`, `users.json`, `.tokens`). `.gitignore` reduces commit risk but does not encrypt or vault them. Whether a secrets manager/KMS is in play is **Unanswerable**.
-- **Container isolation completeness (L5):** `USER appuser` appears for at least one service; whether every service (notably the `execute_command` host) drops root and is sandboxed is **Unanswerable**.
-- **Vector-store access control (L3):** No evidence of authn/row-level controls on Weaviate. **Unanswerable.**
-- **Worksheet-flagged ambiguity:** the worksheet itself records "asks / different / not / Unanswerable" against several transport and identity questions — these are carried forward as gaps, not resolved.
+1. **Prompt-assembly and content-handling claims cannot be tested end to end.** No client is in scope, so whether any client honors `readOnlyHint`/`destructiveHint` or gates unannotated destructive tools is unknown.
+2. **Container isolation is platform-owned.** The repo controls the image, the shell, and egress; escape resistance (L5-T01) belongs to Cloudflare Containers and is unanswerable here.
+3. **Token-at-rest protection is library-owned.** Whether `OAuthProvider` encrypts grant props containing upstream Cloudflare tokens in `OAUTH_KV` is not verifiable from this repo.
+4. **Documentation contradicts code in four places** (flagged, not resolved): the sandbox README promises "~10m" lifetime (`apps/sandbox-container/README.md:13`) while code reaps at 15 minutes (`containerManager.ts:40-41`); the model-facing instructions describe "an Ubuntu 20.04 base image" (`server/prompts.ts:6`) while the Dockerfile is `alpine:3.19` (`Dockerfile:2`); the README says containers "don't save any state" while the container DO is keyed per user (`container-tools.ts:17`); and three read scopes carry "See and change" consent descriptions (`workers-builds.app.ts:24-27`, `workers-observability.app.ts:15-16`).
+5. **Retention of the only per-invocation record** (Analytics Engine `ToolCall` datapoints) is not stated anywhere in the repo.
 
 ## 6. MAESTRO Layer Mapping
 
-Only evidenced components are mapped. "No evidence in this layer" is stated where applicable rather than invented.
-
-| Layer | Name | Evidenced components in this system |
+| Layer | Evidenced components | Status |
 |---|---|---|
-| **L1** | Infrastructure | Docker host substrate, `bedrock.tf` IaC, network exposure via `HOST`/`PORT`; physical/cloud infra otherwise unspecified |
-| **L2** | Cognitive Core | OpenAI / HuggingFace generation models (via `.env` keys); Bedrock embedding model (`embedding_model_arn`) |
-| **L3** | Data, Memory, Knowledge | Weaviate vector store, `data_source_sync`, embeddings, `context-engineering.md` |
-| **L4** | Orchestration & Coordination | `assistants_server.py`, `langchain_agent.py`, multi-agent router (`query_multi_agent_assistant`) |
-| **L5** | Deployment & Execution | `docker-compose.yml`, `deploy_weaviate.sh`, `requirements.txt`, partial `USER appuser` |
-| **L6** | Tools, Application, Ecosystem | `sec545-mcp-servers`, `mcp_client.py`, filesystem suite, `execute_command`, calendar suite, assistant-router tools |
-| **L7** | Identity & Autonomy | `client_secret.json`, `.env`, `users.json`, `.tokens`, `authorize_calendar_user` |
-| **L8** | Safety & Security | No dedicated guardrail/IO-validation component evidenced — **No positive evidence in this layer** (analyzed as a gap) |
-| **L9** | Monitoring & Observability | `check-keys.sh` (secret-presence check only); no audit-grade logging evidenced |
-| **L10** | Governance & Compliance | `.gitignore`, design notes (`multi-agent-threats.md`, `proposed-aicm-extensions.md`, `aicm-iso42001-mapping.md`) — governance artifacts, no enforcement engine evidenced |
+| L1 Infrastructure | Cloudflare Workers per app; KV (`OAUTH_KV`, `USER_BLOCKLIST`); Durable Objects (`UserContainer`, `ContainerManager`, `WarpDiagReader`); Analytics Engine; Sentry via `toucan-js`; container registry `registry.cloudchamber.cfdata.org`; GitHub Actions | Evidenced |
+| L2 Cognitive Core | Client LLM (external); server-side LLM calls in `ai_search` (`autorag.tools.ts:133`) and `get_url_json` (`browser.tools.ts:323`); eval models and LLM judge in `packages/eval-tools/src/test-models.ts:42-48`; server `instructions` and tool descriptions as the prompt-assembly surface | Evidenced (prompt surface); model internals unanswerable |
+| L3 Data, Memory, Knowledge | Grant props in `OAUTH_KV`; API-token identity cache (30 d); AI Search / AutoRAG indexes; per-request context injected by 30+ content-returning tools; no agent memory | Evidenced |
+| L4 Orchestration | None owned by the system. HITL surface only (annotations, confirmation text) | Partially evidenced |
+| L5 Deployment & Execution | Per-user container (Alpine, shell, internet); CI deploy on push to `main` (`main.yml`, `release.yml`); container image built and pushed manually (`apps/sandbox-container/package.json:10`) | Evidenced |
+| L6 Tools & Ecosystem | 150+ tools across 18 servers; upstream Cloudflare REST/GraphQL APIs; Browser Rendering; URL Scanner; DEX device commands; third-party sites via fetchers | Evidenced |
+| L7 Identity & Autonomy | OAuth provider with DCR; upstream Cloudflare OAuth (PKCE S256); API-token mode; `AccountManager` scoping; per-app scope lists | Evidenced |
+| L8 Safety & Security | Zod input validation; Host/Origin allowlist; 4 MiB body cap; partial tool annotations; no output guardrails | Evidenced (thin) |
+| L9 Monitoring | Analytics Engine `ToolCall`/`McpRequest`/`AuthUser` events; Sentry; Workers observability at 10% trace sampling; no invocation audit log | Evidenced |
+| L10 Governance | Apache-2.0; changesets; `server.json` registry manifest; deprecation notices in four apps; no SECURITY.md, no CODEOWNERS | Evidenced (gaps) |
 
 ## 7. Assessment Status by Layer
 
-- **L1 Infrastructure** — Partially Answerable. IaC and exposure evidenced; physical/network controls not.
-- **L2 Cognitive Core** — Partially Answerable. Models identified; training/alignment provenance out of scope (vendor-hosted).
-- **L3 Data, Memory, Knowledge** — Answerable for architecture; access-control posture Unanswerable.
-- **L4 Orchestration & Coordination** — Answerable. Multi-agent routing and tool invocation evidenced; gating policy Unanswerable.
-- **L5 Deployment & Execution** — Partially Answerable. Compose evidenced; isolation completeness Unanswerable.
-- **L6 Tools, Application, Ecosystem** — Answerable. This is the richest, best-evidenced layer.
-- **L7 Identity & Autonomy** — Partially Answerable. Secret artifacts evidenced; scoping/lifecycle Unanswerable.
-- **L8 Safety & Security** — Answerable as a gap (absence of controls is itself the finding).
-- **L9 Monitoring & Observability** — Unanswerable (no audit-grade logging evidenced).
-- **L10 Governance & Compliance** — Partially Answerable. Governance artifacts exist; enforcement Unanswerable.
+- **L1** Partially answerable. Supply-chain hygiene evidenced; infrastructure credential handling partially evidenced.
+- **L2** Partially answerable. Prompt-assembly surface fully evidenced; model behavior and training unanswerable.
+- **L3** Answerable for context injection; token-at-rest protection unanswerable. CE-T1 through CE-T7 evaluated: CE-T1 (L3-T04) and CE-T5/CE-T6 (L3-T07) evidenced; CE-T3 confusion appears as the PB-H finding (generated text indistinguishable from retrieved); CE-T2, CE-T4, CE-T7 have no evidenced instance (no agent memory, no persistent context across requests per `server.ts:73`).
+- **L4** Partially answerable (HITL surface only).
+- **L5** Partially answerable. Container configuration evidenced; platform isolation unanswerable; CI evidenced.
+- **L6** Answerable.
+- **L7** Answerable for the code; library storage unanswerable.
+- **L8** Answerable (absence is the finding).
+- **L9** Answerable (absence is the finding).
+- **L10** Partially answerable; repository settings unanswerable.
 
-## 8. Detailed Threat Analysis
+## 8. Summary of Findings
 
-Findings are grouped by layer. MAESTRO `L<n>-T<nn>` IDs are primary; OWASP `T<n>` IDs are cited parenthetically where they apply.
+Ordered by risk. Lens tags: MCP = OWASP MCP Top 10 (Phase 3 beta; CC BY-NC-SA 4.0, so all MCP material here is own-words paraphrase and the NonCommercial term applies to reuse of OWASP's text), PB = PHANTOM-B (CC-BY, attribution in Section 10), Part 3 = the Trust & Identity-Lifecycle taxonomy in `threat-technique-and-control-library.md`. ATLAS technique IDs in block titles are ATLAS 5.6.0 (Apache-2.0). Ratings are as justified in each Section 9 block; "prov." marks a rating provisional on evidence named in Section 14.
 
----
+| # | Finding | Layer | Lens | Likelihood | Impact | Risk | Status | Implementing party |
+|---|---|---|---|---|---|---|---|---|
+| 1 | Third-party and user-controlled content returned into context unframed across 30+ tools | L3-T04 | PB-P, MCP06, MCP10 | High | High | **High** | Answerable | Tool Provider |
+| 2 | No server-enforced approval on deletes, raw SQL, device captures, exec; `d1_database_query` annotated non-destructive; 14 of 18 apps unannotated | L4-T07 | PB-O, MCP02 | Medium | High | **High** (prov.) | Answerable | Tool Provider, AP |
+| 3 | Raw SQL, raw GraphQL, public-by-default URL scans, Hyperdrive origin edits, employee-device captures, unredacted actor emails | L6-T06 | PB-O | Medium | High | Medium-High | Answerable | Tool Provider |
+| 4 | Upstream Cloudflare tokens custodied 30 days in KV; identity cache 30 days; truthy `DEV_DISABLE_OAUTH` check | L7-T02 | MCP01, MCP07 | Low | High | Medium | Partial | Tool Provider |
+| 5 | Scopes granted at app granularity only; client request overwritten; three read scopes described as "See and change" | L7-T03 | PB-A, MCP02 | High | Medium | Medium | Answerable | Tool Provider |
+| 6 | Per-user container: unfiltered shell, internet egress, no `USER`, blocklist only at initialize, no timeout | L5-T04 | PB-O, MCP05 | Medium (escape unassessable) | Medium | Medium (prov.) | Partial | Tool Provider as OSP; CSP |
+| 7 | No invocation-level audit record; tool name, user ID, error code only; 10% trace sampling | L9-T01 | MCP08 | High | Medium | Medium | Answerable | Tool Provider, AP |
+| 8 | No outbound size caps on tool results; GraphQL size guard returns unflagged error text | L3-T07 | CE-T5/T6 | Medium | Medium | Medium | Answerable | Tool Provider |
+| 9 | Tag-pinned actions, deploy on push to `main` with no environment gate, image by tag not digest, no SBOM/provenance, no Dependabot | L5-T02 / L1-T01 | MCP04 | Low | High | Medium | Partial | Tool Provider as OSP; CSP |
+| 10 | `ai_search` returns generated text in the same format as retrieved documents; eval judge baseline unmeasured, evals not in CI | L2 (PB-H) | PB-H | Unassessable | Medium | Medium (prov.) | Partial | MP; Tool Provider |
+| 11 | No SECURITY.md/CODEOWNERS; `server.json` and README disagree; four doc-vs-code mismatches; no data-handling statement | L10-T02 / T05 | — | High | Low-Medium | Low-Medium | Partial | AIC (governance); Tool Provider (repo) |
+| 12 | One-year approved-clients cookie skips consent on re-authorization, including after scope changes | L4-T07 / L7-T02 | Part 3 (Approval Reuse) | Medium | Low | Low-Medium | Partial | Tool Provider |
+| 13 | Model-directed imperatives in descriptions; sandbox prompt describes a nonexistent resource and wrong base image | L2 (PB-A/P) | PB-A, PB-P, MCP03 | Medium | Low | Low | Answerable | Tool Provider |
 
-### L6-T04 — MCP Server Compromise / Over-Broad Tool Surface (maps to OWASP T2 Tool Misuse)
+Controlling risk: #1 paired with #2 in any client session that connects a fetcher and a write-scoped server together (Section 11, Path 1). Findings #3, #6, and #8 are amplifiers of that pair; #4, #7, #9, and #12 govern how far a compromise travels, how long a grant stays live, and whether misuse is detected.
+
+## 9. Detailed Threat Analysis
+
+### L3-T04 Context poisoning via tool-returned third-party content (PB-P indirect; MCP06:2025; MCP10:2025; ATLAS AML.T0051.001 Indirect, AML.T0080 AI Agent Context Poisoning)
 
 **MAESTRO Layer**
-- L6: Tools, Application, Environment, and Ecosystem (Domain 2)
+- L3: Data, Memory, Knowledge (Domain 1); surface owned by prompt/model-core per the L3-T04 ownership note
 
 **Current Evidence**
-- The MCP cluster exposes `execute_command` (arbitrary command execution) and a full destructive filesystem suite including `delete_file_or_directory`, `move_file_or_directory`, and `write_file`.
-- A single agent path can reach all of these tools through `mcp_client.py`.
+- 13 browser-rendering tools return rendered third-party page text, markdown, links, DOM snapshots, and AI-extracted JSON as `JSON.stringify({result})` with no framing (`apps/browser-rendering/src/tools/browser.tools.ts:43-51, 87-95, 242-256, 300-306, 353-359, 402-408, 510-516`).
+- Search tools wrap chunks in `<result>` tags but interpolate chunk text unescaped, including third-party docs indexed by stack-mcp from vite.dev, vitest.dev, docs.astro.build, opennext.js.org, replicate.com, hono.dev and community.cloudflare.com (`apps/stack-mcp/src/types/stack.types.ts:22-87`; `stack.tools.ts:138-148`).
+- AutoRAG `search` returns user-indexed documents as `<file name="${item.filename}">${data}</file>` with filename and content unescaped (`apps/autorag/src/tools/autorag.tools.ts:85-95`).
+- AI Gateway `get_log_request_body` / `get_log_response_body` return previously logged prompts and model responses raw (`ai-gateway.tools.ts:152-164, 193-205`); `workers_get_worker_code` returns raw script source (`worker.tools.ts:174-181`); build logs, DEX diag files, container stdout, D1 rows, and URL Scanner HAR files are returned raw.
+- The `workers-prompt-full` prompt fetches `developers.cloudflare.com/workers/prompt.txt` and returns it as a `role: 'user'` message (`docs-ai-search.prompts.ts:14-25`).
+- A grep for `sanitiz`, `redact`, `escape`, `untrusted`, `treat .* as data` finds only the OAuth consent page sanitizer (`workers-oauth-utils.ts:213-227`); no tool output is framed as untrusted.
+- No size limit exists on browser page content, crawl results, HAR, worker source, warp-diag file content, container output, AI Gateway bodies, or D1 results; `getBuildLogs` follows every cursor (`workers-builds.api.ts:64-86`).
 
 **Reasonable Inferences**
-- An agent that can be steered (via prompt injection at L2/L3) into calling `execute_command` effectively has shell-equivalent capability on the MCP server host.
+- Any page a user asks the model to fetch, any indexed third-party doc, any prior prompt stored in AI Gateway, and any worker source in the account can carry instructions the client model will read as context. The PHANTOM-B indirect-injection pattern (instructions planted and left to be retrieved) applies to at least 30 tools.
+- `structuredContent` is returned by only 7 tools, so most clients receive free text with no schema boundary between data and instructions.
 
 **Unknowns / Missing Evidence**
-- Whether any allow-list, confirmation gate, or per-tool authorization wraps the destructive tools (worksheet: Unanswerable).
+- Whether any connecting client applies its own untrusted-content framing.
+- Whether Cloudflare's hosted Browser Rendering service strips scripts or active content before returning text (out of repo).
 
-**Assessment Status** — Answerable (the exposure is evidenced; the mitigation state is the gap).
+**Assessment Status**
+- Answerable for the server side.
 
-**Attack Vector** — Untrusted content reaches the model (user input, retrieved document, calendar event body) → model emits a tool call to `execute_command` or `delete_file_or_directory` → MCP server executes it with the server's privilege.
+**Attack Vector**
+- Indirect prompt injection. A page, document, log entry, or worker script contains model-directed text; the user invokes a fetch/search/read tool; the text enters context unframed; the model acts on it with the write tools available in the same session (Section 9, L4-T07, L6-T06).
 
-**Cross-Layer Impact** — L2 (injection origin) → L4 (orchestration passes the call) → **L6** (execution) → L1/L5 (host effect); L7 if the tool runs with broad identity.
+**Cross-Layer Impact**
+- L2 (model follows injected instruction), L4 (no HITL gate), L6 (write tools, container egress), L7 (acts with the user's token), L9 (arguments not logged).
 
-**Likelihood / Impact / Risk** — Likelihood **High** (broad tools + no evidenced gating); Impact **High** (RCE-equivalent and data destruction); **Risk: High.**
+**Likelihood / Impact / Risk**
+- Likelihood: High. The surface is broad, the content is fetched on demand from arbitrary URLs, and OWASP MCP06 evidence (Invariant Labs GitHub MCP attack, CyberArk "Poison Everywhere", cited in `mcp-top10.md`) shows this exact path exploited against comparable servers.
+- Impact: High when a write-scoped server is connected in the same client session as a fetcher; Medium for read-only sessions (disclosure only).
+- Risk: High.
 
-**Recommended Mitigations** — Remove `execute_command` from the default tool surface or gate it behind explicit human approval (AIS-11 Agent Security Boundaries); apply per-tool allow-lists and least-capability tool scoping; sandbox the tool-execution host (AIS-13); make destructive filesystem tools require confirmation or operate within a constrained jail. Pair with FAIR-CAM prevention-class controls on tool invocation.
+**Recommended Mitigations**
+- Wrap every content-returning result in an explicit data envelope (a fixed preamble stating the content is untrusted and must not be followed as instructions, plus delimiters), and escape `<`/`>` in interpolated chunk text so `<result>`/`<file>` framing cannot be closed by content (DSP-24 Data Differentiation and AIS-15 Prompt Differentiation, implemented at the Tool Provider; DSP-21 for the AutoRAG corpus side).
+- Return `structuredContent` with an `outputSchema` for the browser, AutoRAG, AI Gateway log, and worker-code tools so clients have a machine-readable data boundary.
+- Cap returned bytes per tool (browser HTML/markdown, HAR, worker source, container stdout) and paginate; the 4 MiB inbound cap has no outbound counterpart.
+- Deliver `workers-prompt-full` as a `resource` or `assistant`-framed content, not a `user` message.
 
 **SSRM Ownership**
-- Primary: OSP + AP + **Tool Provider** (three Primary owners at L6)
-- Shared: MP
-- Agent Owner accountable: yes (always, per 3SRM §3.1 / MAESTRO §9.3). Under the AaI model the Owner here is AIC+AP+OSP.
+- Primary (L3 matrix): AIC — `Partial — depends on deployment model`
+- Shared: CSP, MP, OSP, AP
+- Implementing party: Tool Provider (Cloudflare). The L3 row of the 3SRM matrix has no Tool Provider entry, yet the unframed content is produced inside the Tool Provider's code. Structural AICM gap 2 (dynamic tool discovery; Tool Provider not a recognized AICM role, partially covered by STA, AIS-11, AIS-13).
+- Agent Owner accountable: yes (always, per 3SRM §3.1 and MAESTRO MAESTRO §9.3)
 
-**Required Evidence to Fully Answer** — Tool authorization policy / allow-list config; HITL gate configuration; the execution context (user, sandbox) of the MCP server process.
+**Required Evidence to Fully Answer**
+- Client-side handling policy for tool results; Browser Rendering service content-sanitization documentation.
 
 ---
 
-### L6-T08 — Tool Definition Poisoning (maps to OWASP T2 / T15)
+### L3-T07 Context overflow through unbounded tool results (CE-T6 overflow, CE-T5 compression-loss; ATLAS AML.T0046 Spamming AI System with Chaff Data)
 
 **MAESTRO Layer**
-- L6: Tools, Application, Environment, and Ecosystem (Domain 2)
+- L3: Data, Memory, Knowledge (Domain 1)
 
 **Current Evidence**
-- Tools are advertised to the agent by description via MCP (`read_file`, `list_directory`, `search_files`, `execute_command`, etc.).
+- No outbound size limit exists on browser page HTML/markdown, crawl results, URL Scanner HAR, worker source, warp-diag file content, container `exec` output, container file reads, AI Gateway log bodies, or D1 query results; `getBuildLogs` follows every cursor with no cap (`workers-builds.api.ts:64-86`).
+- The one guard is GraphQL: a result over 800,000 characters is replaced by an error message that is not flagged `isError` (`graphql.tools.ts:1036-1051`).
+- The inbound cap is 4 MiB (`server.ts:112, :214-261`); there is no outbound counterpart.
+- Descriptions push toward large results: "Set a high limit (1000+)" (`workers-observability.tools.ts:199`); `start_crawl` takes depth and limit with no ceiling stated in the schema (`browser.tools.ts:430-436`).
 
 **Reasonable Inferences**
-- If a tool description can be altered (e.g., a compromised or modified MCP server), the agent can be induced to misuse a benign-looking tool or to prefer a dangerous one.
+- A single fetch of a large page, a HAR, or a crawl result can fill the client context; the model's client then compresses or truncates earlier context, which is the CE-T5 path through which system-prompt constraints and prior user instructions are lost (the compression-induced safety-loss chain in skill Step 3).
+- The GraphQL guard's unflagged error text is itself returned as data, so the model may read the size-limit message as a query result.
 
 **Unknowns / Missing Evidence**
-- Whether MCP tool definitions are integrity-verified or pinned; whether server provenance is checked (STA domain). Unanswerable.
+- Client context-window handling; whether Browser Rendering caps output server-side.
 
-**Assessment Status** — Partially Answerable.
+**Assessment Status**
+- Answerable for the server side.
 
-**Attack Vector** — Modified tool metadata changes the agent's tool-selection behavior without any change to user input.
+**Attack Vector**
+- Adversarial: a page or document sized to overflow, served to a fetcher, evicts safety context before an injected instruction (L3-T04) is acted on. Failure mode: an ordinary large result degrades the session without any adversary.
 
-**Cross-Layer Impact** — L6 origin → L4 (tool-selection logic) → L2 (model acts on poisoned description).
+**Cross-Layer Impact**
+- L3 to L8 (safety constraints lost under compression) to L6 (unauthorized action), the second cross-layer path in the skill's Step 3 list.
 
-**Likelihood / Impact / Risk** — Likelihood **Medium** (requires server-side modification in a lab); Impact **High**; **Risk: Medium.**
+**Likelihood / Impact / Risk**
+- Likelihood: Medium (no adversary needed; large results are routine for HAR and source tools).
+- Impact: Medium (enabler for L3-T04, not a direct loss).
+- Risk: Medium.
 
-**Recommended Mitigations** — Integrity-verify and version-pin MCP tool definitions; STA-domain supply-chain verification of the server; maintain a Service BOM (STA-16, AIC-owned) of all tool dependencies.
+**Recommended Mitigations**
+- Per-tool outbound byte caps with truncation markers and pagination cursors (browser content, HAR, source, logs, container output); return `isError: true` on the GraphQL size guard; add `structuredContent` so clients can summarize rather than inline (DSP-23 Data Integrity for the truncation marker; the L3 context-engineering component list).
 
 **SSRM Ownership**
-- Primary: Tool Provider + OSP
-- Shared: AP
-- Agent Owner accountable: yes (always).
+- Primary (L3 matrix): AIC — `Partial — depends on deployment model`
+- Shared: CSP, MP, OSP, AP
+- Implementing party: Tool Provider. Structural AICM gap 2.
+- Agent Owner accountable: yes (always)
 
-**Required Evidence to Fully Answer** — Tool-definition integrity controls; MCP server build/provenance evidence.
+**Required Evidence to Fully Answer**
+- Client context policy; Browser Rendering output limits.
 
 ---
 
-### L3-T01 — RAG Poisoning (maps to OWASP T18 RAG Input Manipulation; T1 Memory Poisoning)
+### L4-T07 Human-in-the-loop absent by design for destructive and high-impact tools (PB-O; MCP02:2025; ATLAS AML.T0101 Data Destruction via AI Agent Tool Invocation, AML.T0053)
 
 **MAESTRO Layer**
-- L3: Data, Memory, and Knowledge (Domain 1)
+- L4: Orchestration & Coordination (Domain 2), HITL surface
 
 **Current Evidence**
-- A Weaviate vector store with `data_source_sync` grounds the assistants; `context-engineering.md` is present as a design artifact.
+- No code-enforced confirmation, `elicitInput`, or dry-run exists on any mutating tool; deletes execute immediately (`d1.tools.ts:128`, `r2_bucket.tools.ts:165`, `hyperdrive.tools.ts:112`, `browser.tools.ts:544, :622`, `sandbox.container.app.ts:120` with `recursive: true`).
+- The only confirmation language is advisory description text on the two DEX remote-capture tools ("Always ask for confirmation from the user", `dex-analysis.tools.ts:202-203, :260-261`), which issue `pcap` and `warp-diag` commands to real end-user devices (`:231-253, :277-299`).
+- `d1_database_query` accepts arbitrary SQL (`d1.types.ts:13`) and is annotated `readOnlyHint: false, destructiveHint: false` (`d1.tools.ts:202-205`), so a client that honors annotations will treat `DROP TABLE` as non-destructive.
+- Tool annotations are absent on every tool in sandbox-container (`container_exec`, `container_file_delete`), browser-rendering (`kill_browser_session`, `cancel_crawl`, `start_crawl`), dex-analysis (both remote-capture tools), radar (`create_url_scan`), graphql, ai-gateway, autorag, auditlogs, logpush, cloudflare-one-casb, dns-analytics, workers-observability, and demo-day. `openWorldHint` and `idempotentHint` are set nowhere.
+- The implementation guide instructs contributors to "Mark read-only or destructive behavior accurately with tool annotations" (`implementation-guides/tools.md:118`); 14 of 18 apps do not.
 
 **Reasonable Inferences**
-- Documents ingested into the corpus, or content synced via `data_source_sync`, can carry adversarial instructions that surface during retrieval and steer the agent toward tool misuse (links to L6-T04).
+- Approval is delegated entirely to the client. Where the client auto-approves (the configuration under which OWASP reports ~84% tool-poisoning success, cited in `mcp-top10.md`), every destructive action in this surface runs unattended.
+- Missing `destructiveHint` on `d1_database_query` is worse than no annotation, since it affirmatively signals safety.
 
 **Unknowns / Missing Evidence**
-- Ingestion sanitization, source trust boundaries, and vector-store access control (L3-T02). Unanswerable.
+- Which clients are in use and whether they gate on annotations at all.
 
-**Assessment Status** — Partially Answerable.
+**Assessment Status**
+- Answerable.
 
-**Attack Vector** — Poisoned document enters the corpus → retrieved into context (CE-T1 in-context poisoning) → influences a downstream tool call.
+**Attack Vector**
+- Failure mode (no adversary required): a hallucinated or misread instruction produces a delete, a `DROP`, a remote packet capture on an employee device, or `rm -rf` in the container with no checkpoint. Adversarial variant: the L3-T04 injection path drives the same calls.
 
-**Cross-Layer Impact** — **L3** origin → L2 (reasoning) → L6 (tool action).
+**Cross-Layer Impact**
+- L6 (the tools), L7 (user's write scopes), L3 (data loss), L9 (no argument log to reconstruct what ran), L10 (DEX captures on employee devices carry privacy obligations).
 
-**Likelihood / Impact / Risk** — Likelihood **Medium**; Impact **High** (couples to the destructive tool surface); **Risk: Medium–High.**
+**Likelihood / Impact / Risk**
+- Likelihood: Medium (depends on client configuration; unassessed for any specific client).
+- Impact: High (irreversible deletes of KV/R2/D1/Hyperdrive; device-level captures).
+- Risk: High, provisional on client evidence.
 
-**Recommended Mitigations** — Ingestion-time sanitization and provenance tagging (DSP-21 Data Poisoning Prevention, DSP-23 Data Integrity); source allow-listing for `data_source_sync`; treat retrieved content as untrusted at the orchestration boundary; evaluate the seven context-engineering threats (CE-T1 poisoning especially) against ingestion design.
+**Recommended Mitigations**
+- Set `destructiveHint: true` on `d1_database_query`, `container_exec`, `container_file_delete`, `dex_create_remote_pcap`, `dex_create_remote_warp_diag`, `kill_browser_session`, `cancel_crawl`, `start_crawl`, and `create_url_scan`; set `openWorldHint: true` on every fetcher and on `container_exec`.
+- Add MCP elicitation (`elicitInput`) before device captures and before any delete, or a `confirm: true` parameter that the tool refuses without (IAM-18 Output Modification & Special Authorization and GRC-15 Human Supervision at the Tool Provider; AIS-11 Agent Security Boundaries; OWASP Playbook 3 "human approval for sensitive operations").
+- Parse `d1_database_query` SQL and reject DDL and multi-statement input unless an explicit `allow_destructive` flag is passed.
 
 **SSRM Ownership**
-- Primary: AIC (Agent Owner) for data governance/integrity
-- Shared: CSP (storage), MP (embedding integrity), OSP (pipeline)
-- Agent Owner accountable: yes (always).
+- Primary (L4 matrix): OSP. No OSP exists in this system; the orchestration decision (approve or not) sits in the client. `Partial — depends on deployment model`.
+- Shared: MP, AP (client-side gating), Tool Provider (annotations, elicitation), AIC (which write-scoped servers are authorized)
+- Structural AICM gaps 2 (runtime tool binding: the client cannot learn destructiveness except from annotations the Tool Provider sets) and 3 (autonomous decision-making: AICM control ownership assumes a human decides; here the model decides whether to call `d1_database_query` and no AICM control assigns that behavioral responsibility). Name the gap rather than cite GRC-15 as full coverage.
+- Agent Owner accountable: yes (always)
 
-**Required Evidence to Fully Answer** — Ingestion pipeline config, source trust policy, Weaviate access-control configuration.
+**Required Evidence to Fully Answer**
+- Client configuration (auto-approve policy, annotation handling).
 
 ---
 
-### L3-T07 / CE-T7 — Stale Context Retention / Semantic Drift (maps to OWASP T17 Semantic Drift)
+### L5-T04 Sandbox breakout surface and egress in the per-user container (MCP05:2025; PB-O; ATLAS AML.T0050 Command and Scripting Interpreter, AML.T0105 Escape to Host, AML.T0086)
 
 **MAESTRO Layer**
-- L3: Data, Memory, and Knowledge (Domain 1)
+- L5: Deployment & Execution (Domain 2)
 
 **Current Evidence**
-- `data_source_sync` implies a sync cadence between source data and embeddings.
+- `container_exec` passes a raw string to `child_process.exec` with no options (`sandbox.container.app.ts:140`); the declared `timeout` field (`shared/schema.ts:6`) is never applied.
+- The container starts with `enableInternet: true` (`server/containerHelpers.ts:25-27`); the model is told it "has access to the internet" and "may install additional packages" (`server/prompts.ts:4, :16`).
+- The Dockerfile has no `USER` directive (`apps/sandbox-container/Dockerfile`, ends at `EXPOSE 8080` line 61), so the Hono server and every exec run as the image default user.
+- File write uses `fs.writeFile(reqPath, ...)` without joining to the working directory (`sandbox.container.app.ts:104`); read and delete join to `cwd` but apply no containment check (`:75, :120`); `get_file_name_from_path` only strips a prefix and trailing slash (`container/fileUtils.ts:9-14`).
+- `USER_BLOCKLIST` is checked only in `container_initialize` (`container-tools.ts:42-45`), not in `container_exec`, the file tools, or `container_ping` (`:52-151`).
+- One Durable Object per Cloudflare user ID (`container-tools.ts:17`); lifetime 15 minutes (`containerManager.ts:40-41`); `MAX_CONTAINERS = 50` with reaping from 25 (`containerHelpers.ts:1`, `userContainer.ts:43-50`); production `max_instances: 50` (`apps/sandbox-container/wrangler.jsonc:138-140`).
+- `killContainer` tests `this.ctx.id.toString() in active` against a `string[]` (`userContainer.ts:28`), which checks array indices, not values; `containerManager.ts:42` carries a TODO about an invalid DO id.
+- Sandbox tests cover path stripping, MIME type, and one DO state boundary (`fileUtils.spec.ts`, `utils.spec.ts`, `sandbox.server.spec.ts`); no test covers blocklist, isolation, reaping, limits, traversal, or exec constraints.
+- The sandbox requests only `account:read` plus `user:read`/`offline_access` (`sandbox.server.app.ts:13-16`), so the container process does not receive Cloudflare write scopes through this server.
 
 **Reasonable Inferences**
-- If embeddings are not refreshed when source data changes, retrieval returns outdated content (CE-T7), producing decisions on stale grounds.
+- Path traversal is not a privilege boundary here: the same user already holds an unfiltered shell. It matters only as evidence that the file tools were not written defensively.
+- Internet egress plus shell plus 15-minute lifetime makes the container a usable exfiltration and command channel for any injected instruction (L3-T04), and a usable abuse platform (scanning, spam) attributable to Cloudflare's egress IPs.
+- The blocklist gap means a blocked user with an already-running container keeps exec and file access until reaping.
 
 **Unknowns / Missing Evidence**
-- Sync frequency and freshness guarantees. Unanswerable.
+- Container-to-host isolation (Cloudflare Containers runtime), egress filtering at the platform, resource quotas (CPU, memory, disk), and whether the default image user is root. All platform-owned.
 
-**Assessment Status** — Partially Answerable.
+**Assessment Status**
+- Partially answerable.
 
-**Attack Vector** — Source updated, embeddings not → agent reasons over outdated retrieval.
+**Attack Vector**
+- Adversarial: injected instruction (L3-T04) or malicious user runs code that exfiltrates any content the model has placed in the container (including tool results from other servers in the same client session) to an external host; fork bombs or long-running processes with no timeout consume the per-user allocation.
+- Failure mode: model-authored code with side effects on the internet (posting, emailing, purchasing) executes without review (PB-O).
 
-**Cross-Layer Impact** — L3 → L2.
+**Cross-Layer Impact**
+- L6 (egress), L1 (platform), L9 (only an active-count metric is emitted, `containerManager.ts:58`), L10 (abuse attribution).
 
-**Likelihood / Impact / Risk** — Likelihood **Medium**; Impact **Low–Medium** (lab context); **Risk: Low–Medium.**
+**Likelihood / Impact / Risk**
+- Likelihood: Medium for egress abuse (requires injected or malicious instruction; no upstream write scopes are exposed). Unassessable for escape.
+- Impact: Medium (bounded to the user's own container and what the model puts in it; no Cloudflare write credentials are present).
+- Risk: Medium, provisional.
 
-**Recommended Mitigations** — Define and monitor embedding-refresh SLAs; freshness metadata on retrieved chunks (DSP family).
+**Recommended Mitigations**
+- Default `enableInternet: false` with an allowlisted egress proxy (package registries), or a per-session opt-in flag surfaced to the user (AIS-13 Sandboxing; CCC-01–09 for the container change-control path; L1 egress filtering per the MAESTRO L1 network component list; OWASP Playbook 3 execution sandboxes).
+- Apply `timeout` and `maxBuffer` to `exec`; add a non-root `USER` to the Dockerfile; normalize and contain file paths under `workdir`.
+- Check `USER_BLOCKLIST` on every container tool and reap the DO on block.
+- Fix the `in active` check to `active.includes(...)`; test reaping and limits.
+- Correct the model-facing image description (`prompts.ts:6`) and the README lifetime claim so the model's plans match the runtime.
 
-**SSRM Ownership** — Primary: AIC; Shared: MP, OSP. Agent Owner accountable: yes.
+**SSRM Ownership**
+- Primary (L5 matrix): CSP (Cloudflare Containers isolation) and OSP (container configuration and image, here Cloudflare as Tool Provider operating the Worker)
+- Shared: AP; AIC configures (whether to connect the sandbox server at all)
+- Structural AICM gap 6 (agent lifecycle): the per-user container has its own create / run / reap lifecycle (`containerManager.ts:40-41`, `userContainer.ts:24-32`) with a blocklist that applies only at creation; AICM's service-lifecycle controls do not assign responsibility for mid-life revocation.
+- Agent Owner accountable: yes (always)
 
-**Required Evidence to Fully Answer** — `data_source_sync` schedule and freshness policy.
+**Required Evidence to Fully Answer**
+- Cloudflare Containers isolation and egress documentation; image user resolution; quota configuration.
 
 ---
 
-### L4-T04 / L4-T07 — Unauthorized Tool Invocation & HITL Bypass (maps to OWASP T6 Intent Breaking; T19 Unintended Workflow Execution)
+### L7-T02 Credential theft and replay: upstream Cloudflare tokens held and cached by the server (MCP01:2025; MCP07:2025; Part 3 Token Persistence, Cached Identity Assertions; ATLAS AML.T0055 Unsecured Credentials, AML.T0091.000 Application Access Token)
 
 **MAESTRO Layer**
-- L4: Orchestration and Coordination (Domain 2)
+- L7: Identity & Autonomy (Domain 3)
 
 **Current Evidence**
-- The orchestration layer (`assistants_server.py`, `langchain_agent.py`) can invoke the full L6 tool surface; no human-approval gate is evidenced for destructive tools.
+- Upstream Cloudflare access and refresh tokens are placed in grant `props` (`cloudflare-oauth-handler.ts:670-676`; schema `auth-props.ts:20-32`) and persisted by `OAuthProvider` in `OAUTH_KV`; how the library protects them at rest is not verifiable here.
+- Refresh token TTL 30 days (`oauth-router.ts:102`); access token TTL 1 hour (`:101`), then follows upstream `expires_in` on refresh (`cloudflare-oauth-handler.ts:399-405`).
+- Direct API-token identity is cached under `api-token-identity:v1:<sha256(token)>` for 30 days (`api-token-mode.ts:75, :100`); tool calls use the token itself (`:71-73`), and account tokens are rejected on refresh (`cloudflare-oauth-handler.ts:346-352`).
+- The `__Host-MCP_APPROVED_CLIENTS` cookie is HMAC-SHA256 signed with a one-year lifetime (`workers-oauth-utils.ts:5-6, :601`) and lets the consent screen be skipped (`cloudflare-oauth-handler.ts:496-511`). `MCP_COOKIE_ENCRYPTION_KEY` is referenced (`:69`) but declared in no wrangler or example file.
+- Dynamic client registration is enabled (`oauth-router.ts:100`); redirect-URI validation is tested (`cloudflare-oauth-handler.spec.ts:602, :629`); RFC 8707 resource matching is exact (`oauth-router.spec.ts:46`; `auth-integration.spec.ts:156`).
+- Dev bypass: `devApiTokenModeEnabled` requires `DEV_DISABLE_OAUTH === 'true'` (`api-token-mode.ts:150`), but `getCloudflareClient` and `fetchCloudflareApi` use a truthy check `if (env.DEV_DISABLE_OAUTH)` (`cloudflare-api.ts:10, :44`) and substitute `DEV_CLOUDFLARE_API_TOKEN` for the caller's token. No `wrangler.jsonc` sets `DEV_DISABLE_OAUTH`; `.gitignore:4` excludes `.dev.vars`.
+- Sentry excludes `Authorization` and keeps only the `scope` query parameter (`sentry.ts:69-80`); no `console.*` call logs tokens or props; the mcp-common README states "Do not log raw tokens or authentication props" (`packages/mcp-common/README.md:73`).
+- Sentry DSNs with embedded keys are committed in three apps (`workers-builds/wrangler.jsonc:70, :94`; `workers-observability/wrangler.jsonc:77, :119`; `docs-ai-search/wrangler.jsonc:58, :81`), and the transport sends `CF-Access-Client-ID`/`Secret` from env (`sentry.ts:96-101`).
 
 **Reasonable Inferences**
-- Without a gating step, the orchestrator will pass through a model-emitted destructive tool call autonomously.
+- The server is a long-lived custodian of upstream credentials for every connected user: 30-day refresh tokens for OAuth users and 30-day identity cache entries keyed by token hash. A KV read primitive (compromised Worker, misconfigured binding, insider) yields account access at the scope of every connected user.
+- The truthy check is latent: any non-empty value for `DEV_DISABLE_OAUTH` in a production env (e.g. `"false"`) would route every user's API calls through one shared token, a cross-tenant confused-deputy. Not evidenced as configured; evidenced as a one-line misconfiguration away.
+- Sentry DSNs are write-only ingest keys; their exposure enables event spam, not read access.
 
 **Unknowns / Missing Evidence**
-- Existence of any approval/validation gate (L4-T07). Worksheet: Unanswerable.
+- `OAuthProvider` props encryption and KV key management; DCR client-authentication policy; upstream token scope revocation on grant deletion.
 
-**Assessment Status** — Answerable as a gap.
+**Assessment Status**
+- Partially answerable.
 
-**Attack Vector** — Goal subversion or injection causes the orchestrator to invoke a tool outside intended scope with no checkpoint.
+**Attack Vector**
+- Theft of `OAUTH_KV` contents or of a Worker with the binding; replay of a stolen 30-day refresh token; misconfiguration of `DEV_DISABLE_OAUTH` in a deployed env.
 
-**Cross-Layer Impact** — L2 (injection) → **L4** → L6 (action).
+**Cross-Layer Impact**
+- L1 (KV, Worker), L6 (every write tool executes under the stolen token), L9 (userId-only metrics cannot distinguish replay from the legitimate user), L10.
 
-**Likelihood / Impact / Risk** — Likelihood **High**; Impact **High**; **Risk: High.**
+**Likelihood / Impact / Risk**
+- Likelihood: Low for theft (requires infrastructure compromise); Low for misconfiguration (not present, one-line away).
+- Impact: High (account-wide, all connected users).
+- Risk: Medium.
 
-**Recommended Mitigations** — Insert HITL approval for destructive/irreversible tools (GRC-15 Human Supervision, AIS-11); scope each assistant's tool registry to least capability; workflow-state validation to prevent skipped gates.
+**Recommended Mitigations**
+- Replace the truthy checks in `cloudflare-api.ts:10, :44` with `devApiTokenModeEnabled(env)` and add a production guard that throws if `DEV_*` vars are present when `ENVIRONMENT === 'production'`.
+- Document and verify grant-props encryption (or encrypt `accessToken`/`refreshToken` in props with a Worker secret before `completeAuthorization`); shorten the identity cache and refresh TTLs, or bind refresh to client re-authentication after a shorter window (IAM-01–19 credential lifecycle and short-lived/JIT credential components of L7; CEK-01–21 for encryption at rest at L1; MCP01 controls: vaulted secrets, session-bound short-lived tokens).
+- Declare `MCP_COOKIE_ENCRYPTION_KEY` in the deployment contract (`.dev.vars.example`, CONTRIBUTING) or remove the dead reference.
+- Move Sentry DSNs to secrets to keep ingest keys out of the public tree.
 
-**SSRM Ownership** — Primary: OSP; Shared: AP, MP; Agent Owner accountable: yes (AaI → AIC+AP+OSP).
+**SSRM Ownership**
+- Primary (L7 matrix): AIC (AP) — `Partial — depends on deployment model`
+- Shared: CSP (KV, Workers isolation, certificates), OSP, AP, Tool Provider
+- Implementing party: Tool Provider (Cloudflare holds and refreshes the upstream tokens). The AIC cannot change custody; it can shorten exposure by revoking grants and by choosing API-token mode with short-lived tokens.
+- Agent Owner accountable: yes (always)
 
-**Required Evidence to Fully Answer** — Orchestration tool-gating / approval configuration.
+**Required Evidence to Fully Answer**
+- `@cloudflare/workers-oauth-provider` 0.10.3 storage documentation; production env var inventory.
 
 ---
 
-### L4-T05 / L6-T01 — Delegation-Chain Escalation & Multi-Agent Trust Abuse (maps to OWASP T3 Privilege Compromise; T14)
+### L7-T03 Over-privileged and mis-described scopes; consent-screen accuracy (MCP02:2025; PB-A; Part 3 Stale Trust Decisions, Authorization Bypass; ATLAS AML.T0053 AI Agent Tool Invocation)
 
 **MAESTRO Layer**
-- L4: Orchestration and Coordination (Domain 2), with L6 inter-agent surface
+- L7: Identity & Autonomy (Domain 3)
 
 **Current Evidence**
-- `query_multi_agent_assistant` routes across sub-assistants; `query_any_assistant` and `query_langchain_agent` provide cross-agent reach. Design note `multi-agent-threats.md` is present.
+- The authorize handler overwrites whatever scopes the client requested with the app's full list (`oauthReqInfo.scope = Object.keys(scopes)`, `cloudflare-oauth-handler.ts:493`), so a client cannot request a narrower grant than the app defines.
+- Write scopes per app: `workers:write` + `d1:write` (workers-bindings, `bindings.app.ts:16-19`), `browser:write`, `dex:write`, `logpush:write`, `url_scanner:write`, `rag:write` (`packages/mcp-common/src/scopes.ts:2-5` plus each `*.app.ts`).
+- Three read scopes carry "See and change" consent descriptions: `workers:read` and `workers_builds:read` in workers-builds (`workers-builds.app.ts:24-27`) and `workers:read` in workers-observability (`workers-observability.app.ts:15-16`).
+- Tools registered with plain `registerTool` receive no `AccountManager` resolution or ownership check: `graphql_api_explorer` (`graphql.tools.ts:1077`), `dns_report`/`show_zone_dns_settings` (`dex-analytics.tools.ts:19-28, :102-117`), all radar tools, all container tools; `zone_details` ignores the resolved account (`zone.tools.ts:93`). Account-scoped tools validate header/argument account IDs against the token's account list (`account-manager.ts:74-117`; tested at `account-manager.spec.ts:82, :91`, `account-tool.spec.ts:87`).
+- Multi-account tokens receive a list of every accessible account in the server instructions (`account-manager.ts:110-116`; `server.ts:72-78`).
+- The account list used for the ownership check is the `/accounts` snapshot captured when the grant was issued and carried in props (`cloudflare-oauth-handler.ts:180-182, :663-677`; consumed at `account-manager.ts:88-96`), not re-fetched per call, so an account removed upstream stays selectable until the grant is refreshed (Part 3 Stale Trust Decisions; IAM-07, CCC-04). The upstream API still rejects the call.
 
 **Reasonable Inferences**
-- A sub-assistant invoked through the router may inherit the parent's tool access; a compromised or injected sub-assistant can propagate instructions to peers (cascading leak / jailbreak proliferation).
+- Least privilege is available only at app granularity. A user who wants `kv_namespaces_list` must grant `workers:write` and `d1:write`.
+- The "See and change" descriptions on read scopes misinform the consent decision in the safe direction (over-warning), but they are still inaccurate consent text; the mismatch suggests descriptions are copied rather than reviewed.
+- Tools without account resolution rely wholly on the upstream Cloudflare API to enforce token scope; that is Cloudflare's own API, so the practical exposure is the loss of the server-side ownership check as defense in depth, not a bypass.
 
 **Unknowns / Missing Evidence**
-- Per-sub-agent permission narrowing; whether sub-agents share the parent's identity/credentials. Unanswerable.
+- Whether Cloudflare's OAuth server supports finer scopes the app could split into read-only and write variants.
 
-**Assessment Status** — Partially Answerable.
+**Assessment Status**
+- Answerable.
 
-**Attack Vector** — Injection lands in one assistant → propagates via `query_multi_agent_assistant` / `query_any_assistant` → reaches an assistant with destructive tool access.
+**Attack Vector**
+- Failure mode: standing write grants enlarge the blast radius of every other finding (L3-T04, L4-T07) without the user having chosen them. Adversarial: any compromised client or stolen token inherits the widest scope the app offers.
 
-**Cross-Layer Impact** — L4 origin → L6 (A2A propagation) → L7 (inherited privilege).
+**Cross-Layer Impact**
+- L4, L6, L10 (consent accuracy).
 
-**Likelihood / Impact / Risk** — Likelihood **Medium**; Impact **High**; **Risk: Medium–High.**
+**Likelihood / Impact / Risk**
+- Likelihood: High that grants exceed need for read-only use cases (structural).
+- Impact: Medium.
+- Risk: Medium.
 
-**Recommended Mitigations** — Permission narrowing across delegation hops (IPY controls, AIS-11); per-sub-agent identity and scoped credentials; inter-agent message validation. Flag the **Sub-Agent Delegation** and **Cross-Org Collaboration** AICM structural gaps (3SRM §2.6) — current AICM lacks a clean control for intra-agent delegation accountability.
+**Recommended Mitigations**
+- Split workers-bindings into read and write server variants, or honor a client-requested scope subset at `:493` intersected with the app's list (MCP02 least-privilege-by-design scope maps).
+- Correct the three scope descriptions; add a unit test that asserts every `*:read` scope description contains no "change".
+- Route the zone, radar, and graphql tools through `accountTool()` or an equivalent ownership check.
 
-**SSRM Ownership** — Primary: OSP; Shared: MP, AP, Tool Provider; Agent Owner accountable: yes, to the full depth of the delegation chain (non-delegable).
+**SSRM Ownership**
+- Primary (L7 matrix): AIC (AP) — grant review and acceptable-use configuration (GRC-09); `Partial — depends on deployment model`
+- Shared: CSP, OSP, AP (scope request behavior), Tool Provider (scope definitions and consent text, implementing party)
+- Agent Owner accountable: yes (always)
 
-**Required Evidence to Fully Answer** — Sub-agent permission model; credential-scoping per assistant.
+**Required Evidence to Fully Answer**
+- Cloudflare OAuth scope catalog.
 
 ---
 
-### L7-T02 / L7-T03 — Service-Account Exposure & Over-Privileged Identity (maps to OWASP T22 Service Account Exposure; T9 Identity Spoofing)
+### L4-T07 / L7-T02 Approval reuse: one-year approved-clients cookie skips consent (Part 3 Approval Reuse; IAM-18; ATLAS AML.T0012 Valid Accounts)
 
 **MAESTRO Layer**
-- L7: Identity and Autonomy (Domain 3, horizontal)
+- L4: Orchestration & Coordination (HITL surface) and L7: Identity & Autonomy (Domain 2 / Domain 3)
 
 **Current Evidence**
-- Secrets are file-resident: `client_secret.json` (Google OAuth), `.env` (`OPENAI_API_KEY`, `HUGGINGFACE_KEY`, `SERPAPI_API_KEY`), `users.json`, `.tokens`. `authorize_calendar_user` mints/uses calendar authority.
+- A signed `__Host-MCP_APPROVED_CLIENTS` cookie records client IDs the user has approved once; when present for the requesting `clientId`, the authorize handler skips the consent screen and redirects straight to the upstream Cloudflare OAuth flow (`cloudflare-oauth-handler.ts:496-511`).
+- The cookie lifetime is one year (`workers-oauth-utils.ts:5-6, :601`, `HttpOnly; Secure; SameSite=Lax`), HMAC-SHA256 signed with `MCP_COOKIE_ENCRYPTION_KEY` (`:41-87`), and that key is declared in no wrangler, example, or contributing file.
+- Redirect-URI validation on the authorize request is tested (`cloudflare-oauth-handler.spec.ts:602, :629`), and dynamic client registration is open at `/register` (`oauth-router.ts:100`).
 
 **Reasonable Inferences**
-- An agent with `read_file` over the working tree can read `.env`, `client_secret.json`, `users.json`, and `.tokens` — i.e., the tool surface can exfiltrate its own credentials. This couples L6 (read_file) directly to L7 (credential theft).
+- Consent is a one-time event per client for a year. A user who approved a client in January sees no scope screen when the same client re-authorizes in November, including after the app's scope list has changed (the server overwrites requested scopes with its current list at `:493`).
+- The cookie does not grant tokens by itself; the upstream Cloudflare login still runs. The exposure is the silent re-grant, not credential theft.
 
 **Unknowns / Missing Evidence**
-- Whether secrets are vaulted/KMS-backed rather than plaintext on disk; whether tool identities are scoped distinct from the agent. Unanswerable.
+- Behavior when `MCP_COOKIE_ENCRYPTION_KEY` is unset in a deployment (signature verification path); whether a scope-list change invalidates prior approvals.
 
-**Assessment Status** — Answerable for the exposure path; mitigation state Unanswerable.
+**Assessment Status**
+- Partially answerable.
 
-**Attack Vector** — Injected agent calls `read_file('.env')` / `read_file('client_secret.json')` → returns live credentials → replay against OpenAI, Google, SerpAPI.
+**Attack Vector**
+- Failure mode (no adversary required): scope expansion in a later release is never re-consented for existing users. Adversarial: a client that keeps its registration can re-enter the grant flow for a year without a consent checkpoint the user would notice.
 
-**Cross-Layer Impact** — **L7** ↔ L6 (read tool) ↔ L1-T04 (infra credential theft).
+**Cross-Layer Impact**
+- L7-T03 (scope changes propagate without consent), L10 (consent accuracy).
 
-**Likelihood / Impact / Risk** — Likelihood **High** (plaintext secrets reachable by an evidenced tool); Impact **High** (third-party account compromise); **Risk: High.**
+**Likelihood / Impact / Risk**
+- Likelihood: Medium (structural; fires on any scope change).
+- Impact: Low.
+- Risk: Low-Medium.
 
-**Recommended Mitigations** — Move secrets out of the filesystem into a secrets manager/KMS (CEK domain); deny the filesystem toolset read access to secret paths; issue short-lived scoped credentials (IAM JIT); separate tool identity from agent identity (IAM-05 Least Privilege). `.gitignore` prevents commit leakage but does **not** address runtime read exposure.
+**Recommended Mitigations**
+- Bind the approval cookie to a hash of the scope list so any scope change forces re-consent; shorten the approval window to 30–90 days (IAM-18 Special Authorization; IAM-07 Access Revocation; FAIR-CAM VMC Correction).
+- Declare `MCP_COOKIE_ENCRYPTION_KEY` in the deployment contract and fail closed when absent.
 
-**SSRM Ownership** — Primary: AIC (AP); Shared: CSP (identity infra), OSP (federation); Agent Owner accountable: yes.
+**SSRM Ownership**
+- Primary (L4/L7 matrix): OSP for L4, AIC/AP for L7 — `Partial — depends on deployment model`
+- Shared: CSP, MP, AP, Tool Provider
+- Implementing party: Tool Provider (Cloudflare). Structural AICM gap 3 (the approval decision is automated by the server rather than made by a person).
+- Agent Owner accountable: yes (always)
 
-**Required Evidence to Fully Answer** — Secrets-management design; filesystem-tool path restrictions; credential lifecycle (rotation, TTL).
+**Required Evidence to Fully Answer**
+- Key-handling path when the encryption key is absent; scope-change re-consent policy.
 
 ---
 
-### L5-T01 / L5-T04 — Container Escape / Sandbox Breakout (maps to OWASP T11 Unexpected RCE; T20 Framework Code Injection)
+### L6-T06 API abuse and data exposure through high-reach tools (Part 3 Agent-to-SaaS Trust Abuse; ATLAS AML.T0086 Exfiltration via AI Agent Tool Invocation, AML.T0057 LLM Data Leakage)
 
 **MAESTRO Layer**
-- L5: Deployment and Execution (Domain 2)
+- L6: Tools, Application, Ecosystem (Domain 2)
 
 **Current Evidence**
-- Deployment via `docker-compose.yml`; `USER appuser` appears for at least one service; `execute_command` provides an in-container command path.
+- `create_url_scan` defaults visibility to `Public` (`apps/radar/src/types/url-scanner.ts:29-31`; applied at `url-scanner.tools.ts:88, :114`); the parameter description does state that public scans appear in search results (`url-scanner.ts:34`); scans are indexed and returned with page data, verdicts, and full HAR (`:169-180, :278-283`).
+- `graphql_query` POSTs raw client-supplied GraphQL and variables unmodified (`graphql.tools.ts:1015-1016, :274-288`) with no client-side mutation block; mutation refusal is delegated to the upstream API and merely logged (`:255-257`).
+- `d1_database_query` forwards raw SQL and params to `client.d1.database.query` (`d1.tools.ts:212-216`).
+- `dex_create_remote_pcap` and `dex_create_remote_warp_diag` issue capture commands to employee devices (`dex-analysis.tools.ts:231-253, :277-299`); diag archives are downloaded into a Durable Object keyed by token hash + device + command (`warp_diag_reader.ts:117, :132-134`) and files are returned raw by path (`:44-47`).
+- Browser-rendering tools accept any `url` (`browser.tools.ts:27`), raw CSS selectors (`:277-284`), and a free-text extraction `prompt` with `json_schema: z.unknown()` (`:329-336`); `start_crawl` launches multi-page crawls (`:430-436`).
+- `hyperdrive_config_edit` accepts host, port, user, and database (`hyperdrive.tools.ts:186-198`).
+- Audit-log results keep `actor_email` and `actor_token_name` (`auditlogs.tools.ts:225-234`); no output redaction exists anywhere.
 
 **Reasonable Inferences**
-- If the `execute_command` host runs privileged or as root, or shares the host namespace, a command-injection path escalates to host compromise.
+- A URL containing a session token, signed link, or internal hostname submitted to `create_url_scan` becomes a public record by default; the visibility text is on the optional parameter, so a model that omits the parameter gets the public default without having weighed it.
+- Hyperdrive edits can repoint a production database connection to an attacker host; combined with L4-T07 this runs with no confirmation.
+- Browser fetches originate from Cloudflare's rendering service, so classic SSRF to the deployer's private network is not evidenced; abuse is bounded to third-party targets and to content injection (L3-T04).
 
 **Unknowns / Missing Evidence**
-- Whether all services drop root, set resource limits, and isolate the execution host; whether `USER appuser` is applied to the tool-executing container specifically. Unanswerable.
+- Whether the Browser Rendering service blocks private ranges; whether D1 query is transactional per call.
 
-**Assessment Status** — Partially Answerable.
+**Assessment Status**
+- Answerable.
 
-**Attack Vector** — `execute_command` invocation in an under-isolated container → host or cross-container reach.
+**Attack Vector**
+- Adversarial via L3-T04 or a compromised client; failure mode via PB-O (model submits secrets to a public scan, edits a Hyperdrive origin, or runs unintended SQL).
 
-**Cross-Layer Impact** — L6 (execute) → **L5** (escape) → L1 (host).
+**Cross-Layer Impact**
+- L3 (disclosure), L7 (device-level actions under `dex:write`), L10 (employee-device capture obligations).
 
-**Likelihood / Impact / Risk** — Likelihood **Medium**; Impact **High**; **Risk: Medium–High.**
+**Likelihood / Impact / Risk**
+- Likelihood: Medium.
+- Impact: High for Hyperdrive/D1/DEX; Medium for public scans.
+- Risk: Medium-High.
 
-**Recommended Mitigations** — Enforce non-root (`USER`) across **all** services; drop capabilities, set seccomp/AppArmor, read-only root fs; resource limits (CCC domain, AIS-13 Sandboxing); isolate the command-execution service.
+**Recommended Mitigations**
+- Default `create_url_scan` visibility to `Unlisted` and move the visibility statement into the tool description; redact query strings from scanned URLs in returned results.
+- Add a client-side GraphQL mutation block (parse the document and reject `mutation` operations) and a D1 DDL/multi-statement guard behind an explicit flag.
+- Require elicitation for Hyperdrive edits and DEX captures (see L4-T07); add a circuit breaker on `start_crawl` depth and page limits (L6 circuit-breaker component; TVM-01–13).
+- Redact `actor_email` unless the caller passes an explicit `include_actor_identity` flag.
 
-**SSRM Ownership** — Primary: CSP + OSP; Shared: AP; Agent Owner accountable: yes (AaI → Owner + CSP).
+**SSRM Ownership**
+- Primary (L6 matrix, three primaries): OSP, AP, Tool Provider. Here the Tool Provider (Cloudflare) is the evidenced primary; the AP (client) is primary for how the tools are exposed to the user; no OSP exists.
+- Shared: MP (URL Scanner and Browser Rendering models where used), AIC (STA-16 Service BOM: the AIC must inventory which of the 18 servers its users connect)
+- Structural AICM gap 2 applies (runtime tool binding across 18 discoverable servers).
+- Agent Owner accountable: yes (always)
 
-**Required Evidence to Fully Answer** — Full Compose service definitions, container security context, host topology.
+**Required Evidence to Fully Answer**
+- Browser Rendering egress policy.
 
 ---
 
-### L1-T03 — Resource Exhaustion (maps to OWASP T4 Resource Overload)
+### L9-T01 Monitoring blind spots: no invocation-level audit record (MCP08:2025; Part 3 Monitoring Blind Spots)
 
 **MAESTRO Layer**
-- L1: Infrastructure (Domain 1)
+- L9: Monitoring & Observability (Domain 3)
 
 **Current Evidence**
-- Agent reasoning/generation loop reaches external models and tools; no resource-limit evidence in Compose.
+- The only per-invocation record is the Analytics Engine `ToolCall` datapoint with `userId`, `toolName`, `errorCode` (`packages/mcp-observability/src/metrics.ts`; emitted at `registration-context.ts:163-173`). Tool arguments and results are not logged anywhere.
+- `McpRequest` records client name/version, protocol era, client ID, and capability flags (`packages/mcp-observability/src/metrics.ts:34-66`); `AuthUser` records userId or error (`packages/mcp-observability/src/metrics.ts:69-86`).
+- Workers observability is enabled with `head_sampling_rate: 0.1` in all 17 `wrangler.jsonc` files; no `tail_consumers` or logpush configuration exists.
+- Account-token callers are recorded with `userId: undefined` (`request-context.ts:26-28`).
+- No retention, immutability, or IR-query capability for the Analytics Engine datasets is stated in the repo.
+- `apps/auditlogs` reads Cloudflare's product audit logs; it is not an audit log of this service.
 
 **Reasonable Inferences**
-- An unbounded planning loop (L4-T01) or repeated tool calls can exhaust compute / hit paid-API rate limits and cost.
+- Skill rule 4 applies directly: this is product telemetry, not security audit logging. After an incident, the operator can say which tool a user called and whether it errored, but not with what arguments, against which resource, or what came back. Replay of a stolen token (L7-T02) is indistinguishable from the user.
+- Upstream Cloudflare audit logs capture the resulting API mutations under the user's token, so reconstruction is possible from the product side, without linkage to the MCP session or the tool call that caused it.
 
 **Unknowns / Missing Evidence**
-- Rate limits, loop bounds, quotas. Unanswerable.
+- Analytics Engine retention; whether Cloudflare's internal logging of the hosted Workers captures request bodies.
 
-**Assessment Status** — Partially Answerable.
+**Assessment Status**
+- Answerable for the repo.
 
-**Attack Vector** — Induced reasoning loop or tool-call flood.
+**Attack Vector**
+- Not adversarial in itself; it removes detection and forensics for every other finding.
 
-**Cross-Layer Impact** — L4 (loop) → L1 (compute) → cost.
+**Cross-Layer Impact**
+- L7, L6, L10-T05.
 
-**Likelihood / Impact / Risk** — Likelihood **Medium**; Impact **Low–Medium** (lab); **Risk: Low–Medium.**
+**Likelihood / Impact / Risk**
+- Likelihood: High (structural).
+- Impact: Medium.
+- Risk: Medium.
 
-**Recommended Mitigations** — Loop/step caps in orchestration; per-tool rate limits; API spend quotas (BCR/CCC).
+**Recommended Mitigations**
+- Emit an append-only, identity-correlated invocation record for write and exec tools (tool, account, resource IDs, argument hash or redacted arguments, result status, client ID, cf-ray) to a retained store, stored separately from the Worker execution environment and tamper-evident (WORM) per the L9 component list (LOG-01–15, LOG-14–15 I/O Monitoring); add a session or request correlation ID that the upstream Cloudflare API can carry (e.g. a custom header) so product audit logs link back to MCP calls (MCP08; bilateral receipt pattern in `agentic-skills-top10.md`). This also closes L8-T04 (incident-response blind spots): no SOC-consumable signal exists for a misused grant.
+- Record account-token callers by token-name hash rather than `undefined`.
 
-**SSRM Ownership** — Primary: CSP; Shared: OSP; Agent Owner accountable: yes.
+**SSRM Ownership**
+- Primary (L9 matrix): AIC integrates — `Partial — depends on deployment model`
+- Shared: CSP (infrastructure monitoring), MP (MDS-10 model monitoring for AutoRAG), OSP, AP (client-side logging of tool calls and arguments, which is the AIC's only available invocation record today), Tool Provider (implementing party for server-side telemetry)
+- Agent Owner accountable: yes (always)
 
-**Required Evidence to Fully Answer** — Resource limits and loop-bound config.
+**Required Evidence to Fully Answer**
+- Retention and access policy for `mcp-metrics-production`.
 
 ---
 
-### L8-T01 — Guardrail Bypass / Absence of I/O Validation
+### L5-T02 / L1-T01 CI/CD and supply-chain posture (MCP04:2025; ATLAS AML.T0010.004 Container Registry, AML.T0010.001 AI Software)
 
 **MAESTRO Layer**
-- L8: Safety and Security (Domain 3, horizontal)
+- L5: Deployment & Execution (Domain 2); L1: Infrastructure (Domain 1)
 
 **Current Evidence**
-- No dedicated guardrail, prompt-injection detector, or I/O-validation component is evidenced in the architecture.
+- Every dependency is exact-pinned: syncpack `range: ''` (`.syncpackrc.cjs:80-83`) enforced by `pnpm check:deps` in CI (`branches.yml:21`, `main.yml:25`); five MCP packages are catalog-pinned (`pnpm-workspace.yaml:5-12`); lockfile v9 with 971 sha512 integrity entries; `--frozen-lockfile` install (`.github/actions/setup/action.yml:25`); install scripts restricted to esbuild, sharp, workerd (`package.json:43-47`).
+- No Dependabot or Renovate configuration; updates are manual via `syncpack update` (`package.json:25`). No SBOM, provenance, signing, or attestation tooling (grep for sbom, provenance, cosign, sigstore, slsa, attest, cyclonedx, spdx: nothing).
+- All GitHub Actions are tag-pinned, none SHA-pinned (`actions/checkout@v4`/`@v5`, `actions/cache@v5`, `changesets/action@v1`, `pnpm/action-setup@v4`, `actions/setup-node@v4`).
+- Staging deploys on every push to `main` (`main.yml:34`) and production deploys when changesets reports `published == 'true'` (`release.yml:63-66`), both with `CLOUDFLARE_API_TOKEN`; no GitHub `environment:` gate or manual approval exists. `release.yml:35` interpolates the published-packages output into a shell `echo`.
+- Semgrep `--config=auto` runs on PRs, pushes, and monthly (`semgrep.yml:3-8, :30`).
+- The container base image is tag-pinned (`FROM alpine:3.19`, `Dockerfile:2`); `apk add`, `npm install -g pnpm`, and `pnpm install turbo --global` are unpinned (`:7-20, :27, :45`); the deployed image is referenced by short-SHA tag, not digest (`registry.cloudchamber.cfdata.org/sandbox-container:d802004`, `apps/sandbox-container/wrangler.jsonc:87, :136`), and is built and pushed by a manual script outside CI (`apps/sandbox-container/package.json:10`).
+- KV namespace IDs for `OAUTH_KV` are shared across dns-analytics, dex-analysis, workers-builds, and workers-observability (`a6ad2420...`, `753f27a1...`).
 
 **Reasonable Inferences**
-- With no L8 filter between untrusted input and a high-privilege tool surface, injection→tool-misuse chains (see L6-T04, L4-T04) have no compensating control.
+- Dependency pinning is strong; update discipline is manual and unaudited, so a vulnerable pinned version persists until someone runs syncpack.
+- A compromised tag on any listed action executes with `CLOUDFLARE_API_TOKEN` on push to `main` and deploys to every hosted server; the token's scope is unknown.
+- The sandbox image supply chain has no reproducibility or attestation: the running image cannot be tied to a reviewed Dockerfile revision by digest.
+- Shared `OAUTH_KV` across four apps means one app's grant store is readable by the other three Workers' bindings.
 
 **Unknowns / Missing Evidence**
-- Whether any guardrail exists outside the evidenced artifacts. Unanswerable; analyzed as an absence.
+- Branch protection, required reviews, `CLOUDFLARE_API_TOKEN` scope, registry access controls.
 
-**Assessment Status** — Answerable as a gap.
+**Assessment Status**
+- Partially answerable.
 
-**Attack Vector** — Any injection vector reaches the model with no detection layer.
+**Attack Vector**
+- Tag-mutation or maintainer-account compromise of a third-party action; manual image push from a compromised developer machine.
 
-**Cross-Layer Impact** — L8 absence amplifies every L2/L3/L4/L6 finding above.
+**Cross-Layer Impact**
+- L6-T04 (every hosted server), L7-T02 (all user tokens transit a compromised Worker), L1-T04.
 
-**Likelihood / Impact / Risk** — Likelihood **High**; Impact **High**; **Risk: High** (this is the missing compensating control for the whole chain).
+**Likelihood / Impact / Risk**
+- Likelihood: Low.
+- Impact: High.
+- Risk: Medium.
 
-**Recommended Mitigations** — Add input/output validation (AIS-08/09); prompt-injection detection and guardrails (TVM-11); circuit breakers for unsafe tool sequences. Owner-integrated per the L8 shared model.
+**Recommended Mitigations**
+- SHA-pin actions; add `environment: production` with required reviewers to `release.yml`; scope `CLOUDFLARE_API_TOKEN` per app or per environment; avoid shell interpolation of workflow outputs.
+- Build and push the sandbox image in CI, reference it by digest, pin `apk`/`npm` versions, and publish an SBOM and provenance attestation for the image (STA-16 BOM, MDS-09 signing).
+- Enable Dependabot or Renovate with the pin policy preserved.
+- Separate `OAUTH_KV` namespaces per app.
 
-**SSRM Ownership** — Shared across CSP/MP/OSP/AP/Tool Provider within their layers; **AIC is the integrating authority**; Agent Owner accountable: yes.
+**SSRM Ownership**
+- Primary (L5 and L1 matrices): CSP (GitHub, registry, Workers platform) and OSP (Cloudflare as operator of the Worker code and image)
+- Shared: AP; AIC configures (STA-01–16 supplier due diligence, STA-16 Service BOM; AI-CAIQ as the verification instrument)
+- Agent Owner accountable: yes (always)
 
-**Required Evidence to Fully Answer** — Any guardrail / validation component config.
+**Required Evidence to Fully Answer**
+- GitHub repository settings; token scope.
 
 ---
 
-### L9-T02 — Log Tampering / Audit-Trail Gaps (maps to OWASP T23 Selective Log Manipulation; T8 Repudiation)
+### L10-T02 / L10-T05 Governance and consent gaps (Part 3 Agent Onboarding Abuse)
 
 **MAESTRO Layer**
-- L9: Monitoring and Observability (Domain 3, horizontal)
+- L10: Governance & Compliance (Domain 3)
 
 **Current Evidence**
-- `check-keys.sh` validates secret presence; no tamper-evident, retained, IR-queryable logging is evidenced.
+- No `SECURITY.md`, no `CODEOWNERS`, no security issue template; the only template is a bug report (`.github/ISSUE_TEMPLATE/bug_report.md`).
+- `server.json` (schema `2025-07-09`) lists 12 remotes; the README lists autorag, radar, and demo-day (`README.md:22, :26, :28`), which are absent from `server.json`; four apps carry deprecation notices in their instructions (auditlogs, autorag, graphql, radar).
+- Documentation claims not matched by code: "run arbitrary code ... in a secure, sandboxed environment" (`apps/sandbox-container/README.md:5`) against a root-default, internet-enabled shell; "~10m" against 15-minute reaping; "don't save any state" against a per-user DO; "Ubuntu 20.04" against Alpine (Section 5).
+- Consent-screen scope descriptions are wrong for three read scopes (L7-T03).
+- No data-handling, retention, or privacy statement exists in `README.md` or `implementation-guides/*`; DEX capture tools act on employee devices with advisory-only confirmation text.
+- Apache-2.0 license (`LICENSE:1-2`); all packages `private: true`; no npm provenance.
 
 **Reasonable Inferences**
-- Without audit-grade logs, destructive tool actions (`delete_file_or_directory`, `execute_command`) cannot be reconstructed after the fact.
+- A user connecting to a deprecated server (autorag, radar, graphql, auditlogs) that is still listed in the README but absent from `server.json` has no governance signal about support status beyond the runtime instruction string; this is the L10-T01 shadow pattern in mild form.
+- The documentation mismatches indicate no doc-against-code review step; the safe-direction errors (over-warning scopes, shorter-than-actual lifetime) reduce but do not remove the concern.
 
 **Unknowns / Missing Evidence**
-- Existence of WORM/SIEM-integrated logging. Unanswerable. (Skill rule #4: observability/eval ≠ audit logging.)
+- Cloudflare's external vulnerability disclosure route (may exist outside the repo); repository settings.
 
-**Assessment Status** — Unanswerable from current evidence (treated as a gap).
+**Assessment Status**
+- Partially answerable.
 
-**Attack Vector** — Action taken with no durable record; or selective entry removal.
+**Attack Vector**
+- Not adversarial; governance absence compounds every other finding's time-to-detect and time-to-fix.
 
-**Cross-Layer Impact** — L9 gap blinds IR for all operational layers.
+**Cross-Layer Impact**
+- L7 (consent), L5, L9.
 
-**Likelihood / Impact / Risk** — Unassessable for tampering specifically; the **logging-absence** risk is **High** for forensic readiness.
+**Likelihood / Impact / Risk**
+- Likelihood: High (structural).
+- Impact: Low-Medium.
+- Risk: Low-Medium.
 
-**Recommended Mitigations** — Tamper-evident (WORM) logging stored separately from the execution environment; log every tool invocation with arguments; SIEM/SOAR integration (LOG-01–15, LOG-14/15).
+**Recommended Mitigations**
+- Add `SECURITY.md` pointing to Cloudflare's disclosure program and `CODEOWNERS` for `packages/mcp-common` and `apps/sandbox-container`; reconcile `server.json` with the README and mark deprecated servers as such in the manifest.
+- Add a doc-claims test or review checklist for the sandbox README, prompts, and scope descriptions.
+- Publish a short data-handling statement (what is stored, for how long, where: grant props, identity cache, warp-diag archives, Analytics Engine).
 
-**SSRM Ownership** — Shared across all roles; AIC integrates; Agent Owner accountable: yes.
+**SSRM Ownership**
+- Primary: AIC. "In all three deployment models, Layer 10 (Governance) remains with the Agent Owner. Governance cannot be outsourced." (3SRM §8.2, quoted per `ssrm-ownership.md`)
+- All providers consume/configure: Cloudflare supports the AIC's governance through attestations (A&A-01–06) and the repository governance artifacts named above; their absence is a Tool Provider deficiency the AIC must compensate for in its own GRC-09 acceptable-use policy and STA-16 inventory
+- Agent Owner accountable: yes (non-delegable)
 
-**Required Evidence to Fully Answer** — Logging architecture, retention, tamper-evidence design.
+**Required Evidence to Fully Answer**
+- Cloudflare disclosure program reference; repo settings.
 
 ---
 
-### L10-T02 — Policy Bypass / Dynamic Enforcement Failure (maps to OWASP T24 Dynamic Policy Enforcement Failure)
+## 10. Lens Results
 
-**MAESTRO Layer**
-- L10: Governance, Authority, and Compliance (Domain 3, horizontal)
+Rule 9 disposition. Five lenses in fixed order; each states its trigger or its absence.
 
-**Current Evidence**
-- Governance design artifacts exist (`multi-agent-threats.md`, `proposed-aicm-extensions.md`, `aicm-iso42001-mapping.md`); no policy-as-code enforcement engine (OPA/Cedar) is evidenced.
+### 10.1 PHANTOM-B
 
-**Reasonable Inferences**
-- Governance intent is documented but not mechanically enforced at runtime, so policy and actual tool behavior can diverge silently.
+**Trigger**: every server assembles instructions and tool descriptions for a client LLM, and two tools call a model server-side (`ai_search`, `get_url_json`). **Source**: Shostack + Associates White Paper #6, PHANTOM-B v1.0 Q3 2026, CC-BY, from `references/phantom-b.md`.
 
-**Unknowns / Missing Evidence**
-- Any runtime policy engine. Unanswerable.
+PHANTOM-B was run once against the servers' prompt-assembly surface (instructions, tool descriptions, returned content) and once against the two server-side LLM calls (`ai_search`, `get_url_json`). Letters that attach to an existing MAESTRO finding are recorded inside that Section 9 block and summarized here; letters that MAESTRO has no threat ID for are recorded in full below, anchored to L2 per the T16 convention. PHANTOM-B ships no mitigations by design; every control cited comes from MAESTRO, AICM, or the OWASP playbooks.
 
-**Assessment Status** — Partially Answerable.
-
-**Attack Vector** — Agent action violates documented policy with no enforcing gate.
-
-**Cross-Layer Impact** — L10 → L8 (guardrail) → L6 (action).
-
-**Likelihood / Impact / Risk** — Likelihood **Medium**; Impact **Medium**; **Risk: Medium.**
-
-**Recommended Mitigations** — Policy-as-code (OPA/Cedar) for tool authorization; ABAC/RBAC for agent identities; bind documented policy to enforced controls (GRC-01–15).
-
-**SSRM Ownership** — Primary: **AIC — governance is non-delegable** (per the §8.2 rule, L10 remains with the Agent Owner in all deployment models); Agent Owner accountable: yes.
-
-**Required Evidence to Fully Answer** — Policy-enforcement architecture.
-
----
-
-## 9. Cross-Layer Path Analysis
-
-The evidence supports three concrete attack chains. They share a common spine: **the system pairs a high-privilege tool surface with no evidenced L8 guardrail and no evidenced L7 credential isolation.**
-
-**Path A — Injection to RCE/destruction.**
-Untrusted input or retrieved content (L2/L3) → orchestrator passes model-emitted call with no gate (L4-T04/T07) → `execute_command` or `delete_file_or_directory` executes (L6-T04) → host effect, possibly container escape (L5-T01). The absence of L8 validation is what makes this chain end-to-end.
-
-**Path B — Credential theft via the agent's own tools.**
-Injection (L2) → `read_file` on `.env` / `client_secret.json` / `.tokens` (L6) → live third-party credentials returned (L7-T02) → replay against OpenAI / Google / SerpAPI (L1-T04). This is the highest-confidence chain because every step maps to an evidenced artifact.
-
-**Path C — Multi-agent propagation.**
-Injection lands in one assistant → propagates via `query_multi_agent_assistant` / `query_any_assistant` (L6-T01) → reaches an assistant holding destructive tools, inheriting privilege across the delegation hop (L4-T05). Confidence is bounded by the unknown sub-agent permission model.
-
-No further cross-layer paths are manufactured beyond what the evidence supports.
-
-## 10. SSRM Ownership Summary
-
-Deployment model: **Agent-as-Infrastructure (AaI)** → Agent Owner = **AIC + AP + OSP** (+ MP for embedding/model config).
-
-| Finding | Layer | Primary | Shared | Agent Owner Accountable |
+| Letter | Adversary? | What the lens found | Recorded in | Status |
 |---|---|---|---|---|
-| L6-T04 Tool surface / RCE | L6 | OSP + AP + Tool Provider | MP | Yes |
-| L6-T08 Tool def poisoning | L6 | Tool Provider + OSP | AP | Yes |
-| L3-T01 RAG poisoning | L3 | AIC | CSP, MP, OSP | Yes |
-| L3-T07 Stale retention | L3 | AIC | MP, OSP | Yes |
-| L4-T04/T07 Tool invocation / HITL | L4 | OSP | AP, MP | Yes |
-| L4-T05 Delegation escalation | L4 | OSP | MP, AP, Tool Provider | Yes (full chain) |
-| L7-T02/T03 Credential exposure | L7 | AIC (AP) | CSP, OSP | Yes |
-| L5-T01/T04 Container escape | L5 | CSP + OSP | AP | Yes |
-| L1-T03 Resource exhaustion | L1 | CSP | OSP | Yes |
-| L8-T01 Guardrail absence | L8 | Shared (all roles) | — | Yes (AIC integrates) |
-| L9-T02 Logging gap | L9 | Shared (all roles) | — | Yes (AIC integrates) |
-| L10-T02 Policy bypass | L10 | **AIC (non-delegable)** | — | Yes |
+| **P** Prompt injection | Yes | Indirect sub-type dominates: 30+ tools fetch or retrieve content on demand with no data framing; the `workers-prompt-full` prompt arrives as a `user`-role message; multi-turn detection absent | Section 9, L3-T04; descriptions block below | Answerable |
+| **H** Hallucination | No (inducible) | `ai_search` output is generated text in the same result format as retrieved documents; eval judge (`gpt-5.4-nano`) baseline unmeasured; evals not in CI | Block below | Partial |
+| **A** Anthropomorphization | No | Sandbox prompt tells the model about an unregistered `container_files` resource and an Ubuntu image that is Alpine; vendor-steering imperatives ("prefer this over web search"); consent text says "See and change" on read scopes | Block below; Section 9, L7-T03 | Answerable |
+| **N** Non-explainability | No | No decision-making or regulated-explanation surface; reconstruction capability is the L9-T01 finding | No instance | Not applicable |
+| **T** Training issues | Both | Models are the client's and Cloudflare's; no training or fine-tuning surface in the repo; artifact needed: AutoRAG generation model card | No instance | Unanswerable |
+| **O** Over-reliance | No (amplifier) | Destructive tools run with no confirmation; `d1_database_query` marked non-destructive; DEX device captures with advisory-only confirmation text; container runtime reach (no `USER`, internet egress, no write scopes); public URL-scan default reached by omitting an optional parameter | Section 9, L4-T07, L5-T04, L6-T06; Section 11, Path 4 | Answerable |
+| **M** Missing security engineering | Condition | Non-LLM paths are tested (143 cases), Semgrep in CI, exact pinning; gaps routed to L5-T02, L9-T01, L10 | Section 9, those blocks | Answerable |
+| **B** Biases | No | No bias-sensitive decision surface | No instance | Not applicable |
 
-**Verbatim governance principle:** *In all three deployment models, Layer 10 (Governance) remains with the Agent Owner. Governance cannot be outsourced.*
+Net contribution: two findings with no MAESTRO threat ID (H, A), the no-adversary reading of L4-T07 and Path 4 (O), and the expansion of L3-T04 from a category into a per-tool inventory (P).
 
-**Structural AICM gaps flagged (3SRM §2.6):** Sub-Agent Delegation and Cross-Organizational Collaboration (Path C / L4-T05) and Dynamic Tool Discovery (L6 MCP runtime binding) are areas where AICM v1.1 lacks a clean control — named here rather than papered over with a tangential control citation.
+### L2 Server-side LLM output returned unlabeled (PB-H; no canonical L2-T ID; ATLAS AML.T0067.000 Citations for the adversarial variant)
 
-## 11. Framework Crosswalk
+**MAESTRO Layer**
+- L2: Cognitive Core (Domain 1), anchored to the layer per the T16 convention
 
-Full crosswalk, all lenses opted in. MAESTRO remains the analytical spine throughout — every mapping below expresses this system's evidenced findings (Section 8) in another framework's vocabulary; it does not introduce new findings. Where a framework structurally cannot attest a control family, that is stated rather than papered over. Only findings actually surfaced in Section 8 are mapped; rows are omitted where this system has no evidenced threat in that cell rather than padded with "N/A."
+**Current Evidence**
+- `ai_search` returns the raw generated response of the AutoRAG model as tool text (`autorag.tools.ts:133, :142-148`), indistinguishable in format from `search`, which returns retrieved documents (`:85-95`).
+- `get_url_json` performs AI extraction driven by a free-text `prompt` and returns the result as data (`browser.tools.ts:323-359`).
+- The eval harness scores tool-use factuality with an LLM judge (`gpt-5.4-nano`, `test-models.ts:42-48`) using an autoevals rubric (`scorers.ts:12-68`); evals are not run in CI (`eval:ci` defined at `package.json:23` and `turbo.json:24`, referenced by no workflow).
+- No hallucination-rate measurement, grounding check, or citation verification exists for either server-side LLM call.
 
-### 11.1 STRIDE
+**Reasonable Inferences**
+- A client model receiving `ai_search` output cannot distinguish generated text from retrieved fact and will treat it with the authority of a tool result (a model-to-model relay of the PHANTOM-B hallucination pattern).
+- The eval judge's own hallucination rate is unmeasured; a failing eval can pass on a lenient judge.
 
-STRIDE is built for deterministic software; it is used here for the lab's traditional components (the MCP transport, the backend API, the Weaviate store) and pivots into MAESTRO for the AI-specific surface.
+**Unknowns / Missing Evidence**
+- Which model AutoRAG uses for generation; any grounding configuration in the AutoRAG instance.
 
-| STRIDE Category | This system's evidenced finding(s) | MAESTRO ID |
-|---|---|---|
-| **Spoofing** | Sub-agent / inter-agent trust abuse via the router | L4-T05 / L6-T01 |
-| **Tampering** | RAG/corpus poisoning; tool-definition poisoning | L3-T01; L6-T08 |
-| **Repudiation** | No audit-grade logging of tool actions | L9-T02 |
-| **Information Disclosure** | Credential read-out via `read_file` on `.env`/`client_secret.json` | L7-T02 |
-| **Denial of Service** | Resource exhaustion / unbounded loop | L1-T03 |
-| **Elevation of Privilege** | Delegation-chain escalation; over-privileged tool identity | L4-T05; L7-T03 |
+**Assessment Status**
+- Partially answerable.
 
-### 11.2 MITRE ATLAS
+**Attack Vector**
+- Failure mode (no adversary required): generated text with fabricated facts or invented URLs is returned as a tool result and acted on. Inducible: indexed content (L3-T04) steers the generation.
 
-ATLAS supplies the adversarial *technique*; MAESTRO supplies the architectural *context*. The techniques that apply to this system's evidenced surface:
+**Cross-Layer Impact**
+- L3 (retrieval corpus), L8 (no output validation), L10 (no eval gate on release).
 
-| ATLAS Technique | This system's finding | MAESTRO ID |
-|---|---|---|
-| LLM Prompt Injection | Injection is the entry step of Paths A–C | L2-T03 → L4-T02 |
-| ML Supply Chain Compromise | MCP server compromise / tool-def poisoning | L6-T04 / L6-T08 |
-| Exfiltration via ML Inference API | Credential / data exfil through tool surface | L6-T06 / L7-T02 |
-| Evade ML Model | Guardrail bypass (absence of L8 control) | L8-T01 |
+**Likelihood / Impact / Risk**
+- Likelihood: Unassessable from current evidence (no measured rate).
+- Impact: Medium.
+- Risk: Provisional Medium.
 
-ATLAS techniques for *model extraction / inversion / training-data poisoning* (L2-T01/T02/T06) are **not mapped** — this lab consumes vendor-hosted models and shows no training/fine-tuning surface, so those techniques have no evidenced applicability. For technique-level granularity beyond this (the ~140 `AITech-*`/`AISubtech-*` library), that lens can be added; it was not, to avoid over-claiming detail the evidence doesn't reach.
+**Recommended Mitigations**
+- Label `ai_search` output as model-generated in the result text and return the retrieved sources alongside it in `structuredContent` (AIS-09 output validation).
+- Run evals in CI with a measured judge baseline; add a grounding assertion (every URL in output appears in retrieved chunks).
 
-### 11.3 OWASP LLM Top 10
+**SSRM Ownership**
+- Primary (L2 matrix): MP (AutoRAG generation model) for root cause
+- Shared: CSP, OSP; Tool Provider (Cloudflare) is the implementing party for labeling
+- AIC configures (model selection for AutoRAG instances; safety SLA for hallucination rate per 3SRM §6.2)
+- Agent Owner accountable: yes (always)
 
-| OWASP LLM | This system's finding | MAESTRO ID |
-|---|---|---|
-| LLM01 Prompt Injection | Entry vector, Paths A–C | L2-T03 / L4-T02 |
-| LLM03 Training Data Poisoning | RAG corpus poisoning (data, not training) | L3-T01 |
-| LLM04 Model Denial of Service | Resource exhaustion / loop | L1-T03 |
-| LLM06 Sensitive Info Disclosure | Credential/secret read-out | L7-T02 / L6-T06 |
-| LLM07 Insecure Plugin Design | MCP tool surface, def poisoning | L6-T04 / L6-T08 |
-| LLM08 Excessive Agency | No tool gating; broad autonomy | L4-T04/T07; L7-T03 |
-| LLM09 Overreliance | No guardrail / output validation | L8-T01 |
-
-### 11.4 OWASP Agentic AI Top 10 (2026)
-
-This is the most directly applicable external lens, since the lab is genuinely agentic. The 3SRM Annex gives all three coordinates — risk ID, MAESTRO layer, and the AICM role that owns the mitigation:
-
-| OWASP Agentic Risk | This system's finding | MAESTRO | Primary AICM role |
-|---|---|---|---|
-| **ASI01 Agent Goal Hijacking** | Injection-driven goal subversion | L2, L8 | MP + AP / AIC |
-| **ASI02 Tool Misuse** | `execute_command` + destructive FS tools | L6, L8, L7 | OSP + AP / AIC |
-| **ASI03 Identity & Privilege Abuse** | Plaintext creds; over-privileged tools | L7, L4 | AIC + CSP |
-| **ASI04 Supply Chain Vulnerabilities** | Unverified MCP server / tool defs | L6, L2, L5 | AIC + all |
-| **ASI05 Unexpected Code Execution** | Container escape via `execute_command` | L5, L6, L8 | CSP + OSP + AP |
-| **ASI06 Memory Poisoning** | RAG/Weaviate corpus poisoning | L3, L8 | AIC + MP |
-| **ASI07 Insecure Inter-Agent Comms** | Router propagation, no message auth | L4, L7 | OSP + CSP |
-| **ASI08 Cascading Failures** | Multi-agent propagation (Path C) | L4, L9 | AIC + OSP |
-| **ASI10 Rogue Agents** | No monitoring to detect rogue assistant | L9, L10 | AIC + OSP |
-
-(ASI09 Human-Agent Trust is not separately mapped — no human-facing trust/explainability surface is evidenced in the lab.)
-
-### 11.5 OWASP Agentic Threats & Mitigations (T1–T15)
-
-The T1–T15 taxonomy is a distinct OWASP artifact from the ASI Top 10 above, with its own numbering and paired mitigation playbooks. This is the lens already cited inline in Section 8; consolidated here:
-
-| OWASP T-ID | This system's MAESTRO finding | Mitigation playbook |
-|---|---|---|
-| **T1 Memory Poisoning** | L3-T01 / CE-T1 | Playbook 2 |
-| **T2 Tool Misuse** | L6-T04, L6-T08, L4-T04 | Playbook 3 |
-| **T3 Privilege Compromise** | L7-T03, L4-T05 | Playbook 4 |
-| **T4 Resource Overload** | L1-T03 | Playbook 3 |
-| **T6 Intent Breaking & Goal Manipulation** | L4-T04/T07 | Playbook 1 |
-| **T8 Repudiation & Untraceability** | L9-T02 | Playbook 1 (detective) |
-| **T9 Identity Spoofing** | L7-T02 | Playbook 4 |
-| **T11 Unexpected RCE** | L5-T01/T04 | Playbook 3 |
-| **T17 Semantic Drift** | L3-T07 / CE-T7 | Playbook 2 |
-| **T22 Service Account Exposure** | L7-T02 | Playbook 4 |
-| **T23 Selective Log Manipulation** | L9-T02 | Playbook 1 (detective) |
-| **T24 Dynamic Policy Enforcement Failure** | L10-T02 | Playbook 1 |
-
-The remediation in each Section 8 finding already draws from the matching playbook (e.g., L6-T04 mitigations are Playbook 3 measures: strict tool-access policy, function-level auth, execution sandbox, human approval for sensitive operations).
-
-### 11.6 NIST AI RMF crosswalk
-
-NIST AI RMF is a governance-level risk-management framework: it tells an organization **what to do**, while MAESTRO tells it **how**. The pattern is to lead with the RMF function (Govern / Map / Measure / Manage), then pivot into the MAESTRO layer that carries the technical control. RMF **Govern** anchors at MAESTRO **L10**; **L1–L9** supply the technical implementation that Map/Measure/Manage call for. Applied to this system's findings:
-
-| NIST AI RMF Function | What it requires here | MAESTRO home(s) | This system's status |
-|---|---|---|---|
-| **Govern** | Accountable ownership, policy, acceptable-use, oversight of the agent | **L10** (and the non-delegable Agent-Owner accountability) | Governance artifacts exist (`multi-agent-threats.md`, `proposed-aicm-extensions.md`) but no enforcement engine evidenced → see L10-T02. **Partial.** |
-| **Map** | Identify context, the tool surface, and the attack surface | **L1–L6** decomposition (Step 1 mapping) | Done in §6; tool surface and multi-agent topology are well-evidenced. The destructive-tool + broad-privilege surface is the dominant mapped risk. **Answerable.** |
-| **Measure** | Test, quantify, and monitor risk — adversarial robustness, drift, logging | **L8** (guardrails / robustness), **L9** (monitoring/logging), **L2** (model behavior) | No L8 guardrail and no audit-grade L9 logging evidenced → L8-T01, L9-T02. This is the weakest RMF dimension for the lab. **Largely Unanswerable.** |
-| **Manage** | Prioritize, treat, and respond to risk — gating, least privilege, IR | **L4** (HITL/authorization), **L7** (identity/least-privilege), **L8** (incident response) | No tool-authorization gate, plaintext tool-readable credentials → L4-T04/T07, L7-T02/T03. Treatment controls are the priority remediation. **Gap-dominated.** |
-
-**Reading.** Under NIST framing, the lab is strongest on **Map** (the surface is well-understood) and weakest on **Measure** and **Manage** — exactly the two functions whose technical implementation lives in the L4/L7/L8/L9 layers this assessment flagged as gaps. A NIST-led audit would therefore open on **Govern** (L10 ownership is clear; enforcement is not) and concentrate findings in **Measure/Manage**. As with ISO 42001, NIST AI RMF is a governance lens — it does not by itself attest the technical controls; those map down into MAESTRO L1–L9 and should be evidenced via the Section 12 artifacts.
-
-### 11.7 ISO/IEC 42001:2023 alignment
-
-**Headline, stated plainly:** ISO 42001 is a *management-system* standard — strong on governance, lifecycle, and data handling, and **structurally weak on technical security controls**. Encryption/key management, audit-grade logging, model security, and foundational identity have **no ISO 42001 equivalent** (roughly 37% of AICM controls — 90 of 243 — have no ISO 42001 anchor, clustering in exactly those four families). An organization certifying this lab to ISO 42001 would get attestation for governance and process, **not** for the technical controls that carry most of this system's actual risk. Supplement with ISO/IEC 27001, SOC 2, and NIST CSF for the gapped layers.
-
-Per-layer alignment for the layers where this assessment found threats:
-
-| MAESTRO Layer (this system's finding) | ISO 42001 alignment | Anchor that holds / cite-instead for the gap |
-|---|---|---|
-| **L1** Infrastructure (L1-T03) | `Partial` | BCR/DCS → A.4, A.2; **CEK-01–21 all unmapped** → ISO 27001 A.8.24, SOC 2 |
-| **L2** Cognitive Core (injection origin) | `Severely limited` | AIS-08/09 → A.6.2.4, A.7.4; **all MDS unmapped** → MITRE ATLAS / NIST Measure |
-| **L3** Data/Memory (L3-T01, L3-T07) | `Strong` | DSP family → A.7.3/7.4/7.5, A.6.2.4/2.6 — ISO genuinely covers this layer |
-| **L4** Orchestration (L4-T04/T07, L4-T05) | `Partial` | **AIS-10 ↔ 6.1 (strict 1-to-1)**; AIS-11 → A.6 lifecycle; thins past that |
-| **L5** Deployment (L5-T01/T04) | `Strong (CCC/AIS), weak (I&S)` | CCC-01 → B.6.2.7; CCC-08/09 + most I&S unmapped → ISO 27001 |
-| **L6** Tools/Ecosystem (L6-T04, L6-T08) | `Mixed` | STA → A.10 Suppliers (strong); TVM gaps; L6-T08 alignment weak |
-| **L7** Identity (L7-T02/T03) | `Structurally weak — weakest layer` | **IAM-19 ↔ 6.2 is the *only* clean IAM anchor**, and it's a planning clause; IAM-01/04/05/08/17 unmapped → ISO 27001/27002 |
-| **L8** Safety (L8-T01) | `Partial` | AIS-08/09, SEF → A.8.3/8.4; **MDS-06/07 unmapped** → MITRE ATLAS |
-| **L9** Monitoring (L9-T02) | **`Structurally limited`** | **All LOG-01–15 + MDS-10 unmapped** → ISO 27001 A.8.15, SOC 2 CC7.x |
-| **L10** Governance (L10-T02) | `Strong — densest alignment` | GRC-08 ↔ B.4.6 (1-to-1); A&A → 9.2/9.3/10.1; **§9.3 Agent-Owner accountability ↔ ISO 5.1 Leadership** |
-
-**The structural irony, worth stating in any ISO-led review of this system:** the layers where this lab's risk actually concentrates — L7 (plaintext credentials), L9 (no audit logging), L8 (no guardrails), L5 (container isolation) — are precisely the layers where ISO 42001 has the weakest or zero coverage. The layer where ISO 42001 is strongest (L10 governance) is the layer where this lab is *least* deficient (ownership is clear; only enforcement tooling is missing). ISO 42001 certification would therefore look reassuring while leaving the lab's dominant attack chains (Paths A and B) entirely un-attested. Those must be evidenced through ISO 27001 / SOC 2 / MITRE ATLAS instead.
-
-**Audit-grade caveat:** the source AICM↔ISO correlation contains 53 known data-quality issues (mostly ISO 27001 clause IDs mislabeled with a 42001 prefix). Any single control-to-clause citation above should be verified against the catalog being certified against before audit use. The AICM revision analyzed is v1.0.3.
-
-## 12. Required Validation Steps
-
-1. **Tool authorization config** — produce the allow-list / HITL-gate configuration for `execute_command` and the destructive filesystem tools (resolves L6-T04, L4-T04/T07).
-2. **Secrets architecture** — confirm whether `.env`/`client_secret.json`/`users.json`/`.tokens` are vaulted and whether the filesystem toolset can read those paths (resolves L7-T02/T03, Path B).
-3. **Container security contexts** — full Compose definitions: user, capabilities, seccomp, resource limits, isolation of the execute host (resolves L5-T01/T04).
-4. **Sub-agent permission model** — per-assistant tool scoping and credential separation across the multi-agent router (resolves L4-T05, Path C).
-5. **Logging architecture** — tamper-evidence, retention, tool-call coverage, SIEM integration (resolves L9-T02).
-6. **Vector-store + ingestion controls** — Weaviate access control and `data_source_sync` source-trust policy (resolves L3-T01/T07).
-7. **Contractual baseline** (if any third-party tool/model providers are in contractual scope) — AI-CAIQ responses, Shared Responsibility Addenda, Safety SLAs, Delegation-Chain clauses (3SRM §6.2).
-
-## 13. Conclusion: What Can and Cannot Be Concluded
-
-**What can be concluded.** The SEC545 lab is a genuinely agentic, multi-agent, MCP-tool-using system whose **dominant risk is structural**: it pairs an exceptionally high-privilege tool surface (arbitrary command execution + destructive filesystem operations + calendar write) with (a) no evidenced authorization gate at L4, (b) no evidenced safety/guardrail layer at L8, and (c) plaintext, tool-readable credentials at L7. Those three facts compose into two high-confidence, fully-evidenced attack chains — injection-to-RCE/destruction (Path A) and credential-theft-via-own-tools (Path B) — plus a third, multi-agent propagation (Path C), bounded by an unknown sub-agent permission model. As a teaching lab this surface is arguably intentional; as a template for anything production-facing it would require the L4/L7/L8 controls listed in Section 12 before deployment.
-
-**What cannot be concluded.** Whether any compensating controls exist outside the evidenced artifacts — tool gating, secret vaulting, container hardening, sub-agent scoping, audit-grade logging, runtime policy enforcement — is **Unanswerable from current evidence**. Every dependent finding's residual-risk rating is therefore a ceiling, not a verdict; supplying the Section 12 artifacts would let several Medium/High ratings be revised. No finding in this report was asserted beyond what the worksheet and named artifacts support, and absences (L8, L9) were reported as gaps rather than filled by inference.
+**Required Evidence to Fully Answer**
+- AutoRAG model and grounding configuration; eval results.
 
 ---
 
-*Prepared with the AI Threat Model Analyst skill (MAESTRO v2.0, CSA). MAESTRO `L<n>-T<nn>` IDs are primary; OWASP `T<n>` IDs are secondary cross-references. All ratings are design-evidence based; no control-effectiveness testing was performed.*
+### L2 Instructions and descriptions that direct the client model (PB-A, PB-P; MCP03:2025 hygiene; ATLAS AML.T0084.001 Tool Definitions as the discovery surface)
+
+**MAESTRO Layer**
+- L2: Cognitive Core (Domain 1), system-prompt/persona surface
+
+**Current Evidence**
+- Tool descriptions carry model-directed imperatives: "Prefer this over web search... Use even when you think you know the answer" (`stack.tools.ts:92`), "ALWAYS read this guide before migrating" (`docs-ai-search.tools.ts:84`), "Set a high limit (1000+)" (`workers-observability.tools.ts:199`), "This should be the first place you start" (`dex-analysis.tools.ts:552`), "call ... repeatedly in parallel" (`:519-521`).
+- The sandbox instructions address the model in the second person, tell it it "may install additional packages" (`prompts.ts:16`), describe a `container_files` resource that is not registered (`:24-25`), and misstate the base image (`:6`).
+- The `demo-day` tool appends "Use it to answer the user's questions" after an HTML resource (`demo-day.app.ts:22-36`).
+- Descriptions are static in the repository; no dynamic description fetching exists.
+
+**Reasonable Inferences**
+- For the hosted endpoints, these are Cloudflare-authored steering instructions, not poisoning; MCP03 applies only to a forked or mirrored deployment where the tree could be altered. The hygiene concern is that clients cannot distinguish vendor steering ("prefer this over web search") from user intent.
+- The `container_files` phantom resource and the wrong base image are PB-A in practice: the model is told a capability and environment it does not have, and will plan against them.
+
+**Unknowns / Missing Evidence**
+- None material for the hosted case.
+
+**Assessment Status**
+- Answerable.
+
+**Attack Vector**
+- Failure mode (no adversary required): model follows vendor steering over user instruction or plans against a described capability that does not exist.
+
+**Cross-Layer Impact**
+- L6, L4.
+
+**Likelihood / Impact / Risk**
+- Likelihood: Medium (structural).
+- Impact: Low.
+- Risk: Low.
+
+**Recommended Mitigations**
+- Remove behavioral imperatives from descriptions and keep them in `instructions`, where clients can display them; correct the sandbox prompt to the actual image and remove the unregistered resource; add a static screen in CI for model-directed imperatives in descriptions (MCP03 pre-connection screening, applied to the vendor's own tree).
+
+**SSRM Ownership**
+- Primary (L2 matrix): MP; the system-prompt/persona component is AIC-configured per `maestro-layers.md`, but here the instructions are authored by the Tool Provider, which the matrix does not place at L2 (gap 2 again)
+- Shared: CSP, OSP; implementing party Tool Provider
+- Agent Owner accountable: yes (always)
+
+**Required Evidence to Fully Answer**
+- None.
+
+---
+
+### PHANTOM-B letters with no evidenced instance
+
+- **PB-N Non-explainability**: no decision-making or regulated-explanation surface is evidenced; the servers execute explicit tool calls. Unanswerable and not applicable at this layer; reconstruction capability is covered by L9-T01.
+- **PB-T Training issues**: the models are the client's and Cloudflare's (AutoRAG, Workers AI eval models); no training or fine-tuning surface is in the repo. `Unanswerable from current evidence`; artifact needed: model cards for the AutoRAG generation model.
+- **PB-B Biases**: no bias-sensitive decision surface evidenced. Not applicable.
+- **PB-M Missing security engineering**: the non-LLM components have tested auth, transport, and scoping paths (143 cases), Semgrep in CI, and exact pinning. The gaps are recorded under L5-T02, L9-T01, and L10 rather than as a separate finding.
+
+Attribution: PHANTOM-B by Adam Shostack, Shostack + Associates White Paper #6 (v1.0, Q3 2026), CC-BY, https://shostack.org/files/papers/PHANTOM-B_Whitepaper_Shostack.pdf.
+
+### 10.2 OWASP MCP Top 10 (MCP01:2025–MCP10:2025)
+
+**Trigger**: the system is a set of MCP servers (`packages/mcp-common/src/server.ts:73`, `oauth-router.ts:28`). **Source**: OWASP MCP Top 10, Phase 3 beta, CC BY-NC-SA 4.0, from `references/mcp-top10.md`; own-words throughout, NonCommercial term applies to reuse of OWASP text.
+
+| MCP | Applies? | What the lens found | Recorded in | Status |
+|---|---|---|---|---|
+| MCP01 Token mismanagement | Yes | Upstream access and refresh tokens in grant props (`cloudflare-oauth-handler.ts:670-676`), 30-day refresh (`oauth-router.ts:102`), 30-day identity cache keyed by token hash (`api-token-mode.ts:75, :100`); no token logging (checked); Sentry DSNs committed | L7-T02 | Partial (props encryption unverifiable) |
+| MCP02 Scope creep | Yes | Client-requested scopes overwritten with the app's full list (`cloudflare-oauth-handler.ts:493`); write scopes at app granularity; no JIT elevation | L7-T03; L4-T07 | Answerable |
+| MCP03 Tool/schema poisoning | Hosted: hygiene only | Descriptions static in the tree; model-directed imperatives in 11 descriptions; phantom `container_files` resource. Poisoning proper applies only to a forked tree | 10.1 PB-A block | Answerable |
+| MCP04 Supply chain | Yes | Exact pins and frozen lockfile; tag-pinned actions; image by SHA tag not digest; no SBOM/provenance; manual image push | L5-T02 / L1-T01 | Partial (branch protection, token scope) |
+| MCP05 Command injection & execution | Yes | `child_process.exec` on a raw string with no timeout (`sandbox.container.app.ts:140`); raw SQL and raw GraphQL forwarded unmodified; container has internet | L5-T04; L6-T06 | Partial (platform isolation) |
+| MCP06 Intent flow subversion | Yes | 30+ tools return third-party content with no data framing; `workers-prompt-full` as a `user`-role message; no goal anchoring or checker model | L3-T04 | Answerable |
+| MCP07 AuthN/AuthZ | Partly | Server-side account ownership check on `accountTool()` tools only; zone, radar, graphql-explorer, container tools skip it; upstream API enforces; RFC 8707 resource matching tested | L7-T03 | Answerable |
+| MCP08 Audit & telemetry | Yes | Only tool name, user ID, error code per call (`registration-context.ts:163-173`); no argument or result log; 10% trace sampling; no retention stated | L9-T01 | Answerable |
+| MCP09 Shadow servers | Partly | `server.json` lists 12 of the hosted servers; README lists three more; four carry deprecation notices; no inventory of which servers an AIC's users connect | L10-T02 / T05 | Partial |
+| MCP10 Context over-sharing | Yes | Stateless per request (`server.ts:73`), so no cross-session leak by the server; over-sharing happens outbound through unbounded tool results and AI Gateway logged prompts returned into context | L3-T04; L3-T07 | Answerable |
+
+Net contribution: MCP08 and MCP01 supplied the custodial and telemetry framing that MAESTRO's L7/L9 sample threats state generically; MCP10 established that the over-sharing is outbound (tool results), not server-side state.
+
+### 10.3 OWASP Agentic Skills Top 10 (AST01–AST10)
+
+Not triggered: no third-party skill, plugin, or behavior-package installation surface and no skill registry is evidenced or referenced. MCP tool use alone does not activate this lens.
+
+### 10.4 Trust & Identity-Lifecycle taxonomy (library Part 3)
+
+**Trigger**: long-lived credentials (30-day refresh tokens, 30-day identity cache, one-year approval cookie) and per-user Durable Object identity. **Source**: `references/threat-technique-and-control-library.md` Part 3 (41 threats; ASI / ATLAS-tactic / AICM v1.1 tags).
+
+| Part 3 threat | Family | What the lens found | Recorded in | Status |
+|---|---|---|---|---|
+| Token Persistence (IAM-07) | T-A | 30-day refresh TTL (`oauth-router.ts:102`); refresh follows upstream `expires_in` (`cloudflare-oauth-handler.ts:399-405`) | L7-T02 | Answerable |
+| Cached Identity Assertions (AIS-14) | T-A | API-token identity cached 30 days under a token-hash key (`api-token-mode.ts:75, :100`); tool calls use the live token | L7-T02 | Answerable |
+| Approval Reuse (IAM-18) | T-A | One-year approved-clients cookie skips the consent screen (`cloudflare-oauth-handler.ts:496-511`; `workers-oauth-utils.ts:601`) | Section 9, L4-T07 / L7-T02 approval-reuse block | Partial |
+| Stale Trust Decisions (IAM-07, CCC-04) | T-A | Account list for ownership checks is the issuance-time `/accounts` snapshot in props (`cloudflare-oauth-handler.ts:663-677`; `account-manager.ts:88-96`) | L7-T03 | Answerable |
+| Session Reuse (AIS-14) | T-A | No MCP session state; fresh `McpServer` per request (`server.ts:73`); parallel-request prop isolation tested (`server.spec.ts:407`) | No instance | Not applicable |
+| Cross-Session Contamination; Context Inheritance | T-B | Stateless server; no agent memory | No instance | Not applicable |
+| Agent-to-SaaS Trust Abuse (AIS-10, STA-10) | T-C | Every tool calls the Cloudflare API under the user's token; reach bounded by app scope | L6-T06 | Answerable |
+| Cross-Tenant Trust Violations (I&S-06, DSP-24) | T-C | Shared `OAUTH_KV` namespace IDs across four apps; latent `DEV_DISABLE_OAUTH` truthy check would route every user through one token (`cloudflare-api.ts:10, :44`) | L7-T02; L5-T02 | Partial |
+| Agent-to-MCP Trust Abuse | T-C | Direction inverted: this system is the MCP server the client trusts; its trustworthiness is the subject of Sections 9 and 10.2 | — | Not applicable as a finding |
+| Trust Inheritance / Delegated Trust | T-D | No delegation chain or sub-agents | No instance | Not applicable |
+| Monitoring Blind Spots (LOG-03, LOG-07) | T-E | No invocation-level record; account-token callers logged as `userId: undefined` (`request-context.ts:26-28`) | L9-T01 | Answerable |
+| Authorization Bypass (AIS-11, IAM-16) | T-G | Tools registered outside `accountTool()` skip the server-side ownership check | L7-T03 | Answerable |
+| Approval Workflow Bypass (GRC-15, IAM-18) | T-G | No approval workflow exists to bypass; advisory description text only | L4-T07 | Answerable |
+| Agent Onboarding Abuse (STA-08, GRC-09) | T-H | Open dynamic client registration at `/register` (`oauth-router.ts:100`); consent still required on first use; no client allowlist evidenced | L10-T02 / T05 | Partial |
+| Trust Assertion Forgery (STA-16, IPY-03) | T-H | Approval cookie is HMAC-signed; key declared nowhere in the deployment contract | Section 9, approval-reuse block | Partial |
+| Family T-F (scoring, confidence, reputation) | T-F | No trust scoring or reputation surface | No instance | Not applicable |
+
+Net contribution: one new finding (Approval Reuse) and two evidence additions to existing blocks (stale account snapshot in L7-T03; cross-tenant framing of the shared KV and dev bypass in L7-T02). The credential-lifecycle rows sharpened the L7-T02 mitigation from "shorten TTLs" to the specific IAM-07 / AIS-14 controls.
+
+### 10.5 TRAIT&R (inverted-adversary lens)
+
+Not triggered: no insider-threat, misalignment, or untrusted-internal-deployment scope was referenced. The servers execute explicit tool calls and hold no goals of their own; the client model is outside the assessed system.
+
+## 11. Cross-Layer Path Analysis
+
+**Path 1: Indirect injection to unattended destructive action.** A page fetched by `get_url_markdown` or a document returned by `search_dev_stack` carries model-directed text (L3-T04, unframed at `browser.tools.ts:87-95`); the client model, in a session that also has workers-bindings connected, calls `d1_database_query` with a `DROP` (annotated non-destructive, `d1.tools.ts:202-205`) or `kv_namespace_delete`, with no elicitation (L4-T07); the action runs under the user's `workers:write`/`d1:write` grant (L7-T03); the invocation record holds only tool name and user ID (L9-T01). Origin L3, pivot L4/L7, impact L6/L3. Every link is evidenced; the only assumption is a client session with both servers connected, which the README's multi-server listing invites. L3-T07 strengthens the first link: an oversized result can evict the client's safety context before the injected text is read.
+
+**Path 2: Injection to exfiltration through the sandbox.** The same injection instructs the model to write tool results from another server (worker source from `workers_get_worker_code`, AI Gateway request bodies, audit-log actor emails) into the container via `container_file_write` and `curl` them out through `enableInternet: true` (L5-T04, L6-T06). Origin L3, pivot L6, impact L3 disclosure. Evidenced end to end within the repo; bounded by what the model places in the container.
+
+**Path 3: CI compromise to fleet-wide credential exposure.** A mutated third-party action tag (L5-T02) runs with `CLOUDFLARE_API_TOKEN` on push to `main` and deploys altered Workers to every hosted server (L6-T04); each altered Worker reads `props.accessToken` for every request (L7-T02) with no invocation logging of what it does with them (L9-T01). Origin L5, pivot L1/L6, impact L7. Plausible on the evidence; likelihood low.
+
+**Path 4: Public scan default to disclosure.** A user asks the model to check a link that contains a signed token; the model calls `create_url_scan` with the default `Public` visibility (`types/url-scanner.ts:31`) and no HITL (L4-T07); the URL, page, and HAR become a public record (L6-T06 to L3 disclosure). Origin L4 (PB-O), impact L3. Short, fully evidenced, no adversary required.
+
+No multi-agent, memory-persistence, or delegation-chain paths are supported by the evidence; the system has no such components.
+
+## 12. SSRM Ownership Summary
+
+Hosted deployment (assessed). Cloudflare occupies CSP (Workers, KV, DOs, Containers), OSP (the Worker code), Tool Provider (the MCP servers), and MP (AutoRAG, Workers AI). The AIC is the organization whose users connect a client; the AP is the client vendor. A self-hosted fork moves OSP and Tool Provider to the AIC and leaves CSP and MP with Cloudflare.
+
+Ownership below follows the MAESTRO-layer × 3SRM-role matrix in `ssrm-ownership.md`. Because the AIC's agent deployment model is not evidenced, every AIC-side Primary is `Partial — depends on deployment model`; the Tool Provider column is evidenced (Cloudflare hosts the servers). The recurring pattern is that the matrix's Primary owner and the party whose code must change are different roles, which is the 3SRM's own point about the Tool Provider not yet being a recognized AICM role.
+
+| Finding | Matrix Primary | Shared | Implementing party | Structural AICM gap |
+|---|---|---|---|---|
+| L3-T04 unframed content | AIC (partial) | CSP, MP, OSP, AP | Tool Provider | 2 — Tool Provider absent from the L3 row |
+| L3-T07 unbounded tool results | AIC (partial) | CSP, MP, OSP, AP | Tool Provider | 2 |
+| L4-T07 no HITL, annotations | OSP (none exists) | MP, AP, Tool Provider, AIC | Tool Provider (annotations), AP (gating) | 2, 3 |
+| L5-T04 sandbox egress/shell | CSP, OSP | AP; AIC configures | Tool Provider as OSP; CSP for isolation | 6 |
+| L7-T02 token custody | AIC/AP (partial) | CSP, OSP, AP, Tool Provider | Tool Provider | none |
+| L7-T03 scope granularity, consent text | AIC/AP (partial) | CSP, OSP, AP, Tool Provider | Tool Provider | none |
+| L4-T07 / L7-T02 approval reuse (cookie) | OSP (L4), AIC/AP (L7), partial | CSP, MP, AP, Tool Provider | Tool Provider | 3 |
+| L6-T06 high-reach tools | OSP, AP, Tool Provider | MP, AIC (STA-16) | Tool Provider | 2 |
+| L2 PB-H unlabeled generation | MP | CSP, OSP; AIC configures | Tool Provider (labeling) | none |
+| L2 PB-A/PB-P descriptions | MP (matrix); AIC for system prompts | CSP, OSP | Tool Provider | 2 |
+| L9-T01 no invocation audit | AIC integrates (partial) | CSP, MP, OSP, AP, Tool Provider | Tool Provider (server side), AP (client side) | none; LOG-14/15 |
+| L5-T02 / L1-T01 CI, image | CSP, OSP | AP; AIC configures | Tool Provider as OSP | none; STA-01–16 |
+| L10 governance | AIC (always) | all providers consume | AIC | none |
+
+"In all three deployment models, Layer 10 (Governance) remains with the Agent Owner. Governance cannot be outsourced." Agent Owner (AIC) accountability is non-delegable for L10 and for every action its users' clients take through these servers, regardless of who operates them (3SRM §3.1).
+
+## 13. Framework Crosswalk
+
+Not requested; omitted. Available on request: any single framework, or full crosswalk mode (13.1 STRIDE through 13.9 NIST AI RMF, nine subsections; AST10 at 13.7 would state no skill-installation surface is evidenced).
+
+## 14. Required Validation Steps
+
+1. Confirm `OAuthProvider` 0.10.3 grant-props storage and encryption against the library source or Cloudflare documentation (closes L7-T02 unknown).
+2. Grep the production Worker environment inventory for `DEV_DISABLE_OAUTH` and `DEV_CLOUDFLARE_API_TOKEN`; confirm absent (closes the latent bypass).
+3. Test at least one client (Claude, OpenAI Responses, Cursor) for annotation handling and auto-approve defaults against `d1_database_query` and `container_exec` (closes L4-T07 likelihood).
+4. Resolve the sandbox image's default user (`docker inspect` on `sandbox-container:d802004`) and obtain Cloudflare Containers isolation and egress documentation (closes L5-T04 platform unknowns).
+5. Obtain Analytics Engine retention and access policy for `mcp-metrics-production` (closes L9-T01 retention gap).
+6. Verify `CLOUDFLARE_API_TOKEN` scope and GitHub branch protection (closes L5-T02 unknowns).
+7. Run the repo's own eval suite and record the LLM judge baseline (closes PB-H likelihood).
+8. Reconcile the four documentation-versus-code mismatches in Section 5 and the three scope descriptions.
+9. Contractual (3SRM §6.2), for an AIC consuming the hosted endpoints: request Cloudflare's AI-CAIQ responses for the MCP servers as a baseline; a shared-responsibility addendum that names token custody (L7-T02), invocation telemetry retention (L9-T01), and container egress (L5-T04) as Tool Provider obligations; audit rights aligned to A&A-01–06; and a safety SLA for `ai_search` hallucination rate and for human-escalation response on DEX device captures.
+10. Add the 18 servers to the AIC's STA-16 Service BOM with their write scopes, since the AIC, not Cloudflare, owns that inventory.
+11. Re-run `scripts/verify_citations.py` and `scripts/section8_to_sarif.py` after any edit to this report; the SARIF export (`example-report.sarif`) carries all 13 findings with source locations.
+
+## 15. Conclusion: What Can and Cannot Be Concluded
+
+The repository's authentication, transport, and account-scoping code is tested, exact-pinned, and written with evident care for token handling in logs and error paths. What can be concluded from the code is that the servers hand the client model a large, unframed stream of third-party and user-controlled content and, in the same surface, expose immediate destructive actions, raw SQL, employee-device captures, public URL scans, and an internet-connected shell with no server-enforced approval step and incomplete or affirmatively wrong destructiveness annotations. The controlling risk is therefore the pairing of L3-T04 with L4-T07 across a multi-server client session, and it is entirely within the Tool Provider's power to close at the protocol layer. The second-order risk is custodial: 30-day upstream tokens and identity caches held in KV whose at-rest protection cannot be verified here, behind a one-line dev-bypass misconfiguration, with no invocation-level audit trail to detect misuse.
+
+What cannot be concluded from the repo: platform isolation of the sandbox container, at-rest protection of grant props, client-side approval behavior, telemetry retention, and CI token scope. None of these is inferred; each has a named artifact in Section 14.
+
+## 16. Single Clarifying Question
+
+Is the deployment under assessment the Cloudflare-hosted endpoints in `server.json`, or a self-hosted fork of this repo? The answer moves OSP and Tool Provider ownership for every finding in Section 12 and determines whether the CI and image-supply-chain findings (L5-T02) are Cloudflare's or yours to remediate.
