@@ -1,8 +1,8 @@
 # MAESTRO v2.0 — Ten-Layer Threat Reference
 
-This file is the layer-by-layer threat catalog used by the AI Threat Model Analyst skill. Each layer entry lists: definition, components, SSRM owner, key AICM controls, and the canonical sample threats (`L<n>-T<nn>`). Use these threat IDs verbatim in Section 9 of the assessment output.
+This file is the layer-by-layer threat catalog used by the AI Threat Model Analyst skill. Each layer entry lists: definition, components, the AI assets held at that layer, SSRM owner, key AICM controls, and the canonical sample threats (`L<n>-T<nn>`). Use these threat IDs verbatim in Section 9 of the assessment output. The **AI assets** lines fill the `AI asset type` column of the Section 6 mapping and name the assets that Step 2 capability tests and Step 3 chains refer to.
 
-**Source**: MAESTRO v2.0 (CSA, Apr 2026, v0.91 draft), Section 7.
+**Source**: MAESTRO v2.0 (CSA, Apr 2026, v0.91 draft), Section 7. The eight AI asset types, their components, and the capability terms used in the Key considerations are from Sanchez Vicarte, Spoczynski, and Elsaid (Intel), *Threat Modeling for AI: The Case for an Asset-Centric Approach*, arXiv:2505.06315v2, 2 Jul 2025, https://arxiv.org/abs/2505.06315 (CC BY 4.0, attribution required; preprint with no evaluation). Placing each asset type at a MAESTRO layer is this skill's mapping, not the paper's or CSA's. The retrieval-corpus membership, verbatim-leakage test, and retrieval-logging notes at L3 and L9 are drawn from Arzanipour, Behnia, Ebrahimi, and Dutta (University of South Florida), *RAG Security and Privacy: Formalizing the Threat Model and Attack Surface*, arXiv:2509.20324, 2025, https://arxiv.org/abs/2509.20324 (formal definitions only, no experiments; version and license not confirmed, so own-words only). The verifier-subversion checks at L4 and the cross-model task-splitting note at L8 are drawn from Krawiecka and Schroeder de Witt (University of Oxford), *Extending the OWASP Multi-Agentic System Threat Modeling Guide: Insights from Multi-Agent Security Research*, arXiv:2508.09815v1, 13 Aug 2025, https://arxiv.org/abs/2508.09815 (seventeen named threat classes with no IDs, experiments, or mitigations; license not confirmed, so own-words only; the MAESTRO IDs they are recorded under are this skill's choice). The per-store erasure check at L3 and the residual-leakage assets at L1 and L2 are drawn from Liao, Bellemans, Sion, Van Landuyt, and colleagues (DistriNet KU Leuven and Huawei), *A LINDDUN-based Privacy Threat Modeling Framework for GenAI*, arXiv:2603.06051, https://arxiv.org/abs/2603.06051, published at SOUPS 2026 as *AI've Got a Bad Feeling About This: A Privacy Threat Modeling Framework for GenAI* (arXiv non-exclusive license, so own-words only; four checks taken, the LINDDUN knowledge base itself is not carried). The aggregation and termination checks at L4 and the output-schema and format-mimicry checks at L6 are drawn from Paul and Nandy, *Beyond Single-Model Injection: A Threat Model and Defense Architecture for Prompt Injection in Multi-Agent Systems*, arXiv:2609.22949v1, 2026, https://arxiv.org/abs/2609.22949v1 (cited as a preprint; its success rates are not carried because they are the maximum across three models with no stated judging method and no released code or data). The system prompt check at L2 is prompted by Díaz Ferreyra, Kumar, Villarreal, Pantel, and Brueggemann (Hamburg University of Technology and CREATUM GmbH), *Emerging Challenges in Threat Modeling for GenAI-Augmented Systems: A View from the Trenches*, arXiv:2607.28431, 2026, https://arxiv.org/abs/2607.28431 (one case study; cited as a preprint; the check itself is this skill's).
 
 ## Table of contents
 
@@ -35,6 +35,8 @@ Typical owner: CDO / Head of Data Science / ML Engineering / VP Infrastructure. 
 - *Endpoint*: container/VM runtime security, EDR/XDR, process integrity monitoring, supply-chain verification, image signing and scanning, kernel-level protections.
 - *Storage & compute*: datacenter physical security, hypervisor security, encryption at rest and in transit, HSMs, secure enclaves (TEE).
 
+**AI assets.** Model Parameters (weights at rest in storage; activations, the KV-cache, and gradients in accelerator memory during inference or training). A host-level weakness is recorded as the capability it grants over Model Parameters, not only as an infrastructure finding. On shared accelerators or multi-tenant serving, Inspect on these intermediates lets another tenant reconstruct user inputs or training data (Liao et al., arXiv:2603.06051, attacker model CAM6), so check the evidence for per-tenant isolation of accelerator memory and cache.
+
 **Primary SSRM owner.** CSP. AIC selects the CSP, defines infrastructure requirements, validates via CSA STAR / AI-CAIQ.
 
 **Key AICM controls.** I&S-01–09, DCS-01–15, CEK-01–21, BCR-01–11.
@@ -55,6 +57,8 @@ Typical owner: CDO / Head of Data Science / ML Engineering / VP Infrastructure. 
 
 **Components.** Base model weights and architecture; training data and provenance; fine-tuning datasets and processes; safety alignment mechanisms; model serving infrastructure; API endpoints and access controls; system prompts and persona definitions.
 
+**AI assets.** Model Parameters (weights, activations including the KV-cache, updates such as gradients and fine-tuning deltas); Hyperparameters (architecture, training configuration); Dataset (training, fine-tuning, validation); Inputs (system prompt); Outputs (generated content).
+
 **Primary SSRM owner.** MP for base model training, safety alignment, and hosted inference. CSP shared for model hosting infrastructure. AIC configures system prompts, selects models, and implements application-level defenses.
 
 **Key AICM controls.** MDS-01–13, AIS-08–09 (I/O Validation), AIS-15 (Prompt Differentiation).
@@ -67,7 +71,7 @@ Typical owner: CDO / Head of Data Science / ML Engineering / VP Infrastructure. 
 - **L2-T05 Safety alignment degradation** — fine-tuning that inadvertently or deliberately weakens guardrails.
 - **L2-T06 Model inversion attack** — extracting training data from model outputs.
 
-**Key considerations.** Weights, training code, and deployment endpoints are sensitive. Enterprises fine-tuning vendor base models on proprietary data introduce new attack surface. The AICM's 13 MDS controls govern this layer.
+**Key considerations.** Weights, training code, and deployment endpoints are sensitive. Enterprises fine-tuning vendor base models on proprietary data introduce new attack surface. The AICM's 13 MDS controls govern this layer. A capability over the training or fine-tuning Dataset carries to Model Parameters as Influence. Weights the system consumes carry their safety alignment with them, so a model loaded without a verified publisher digest is assumed open to Make Arbitrary Changes upstream. Anthropic's Frontier Red Team cut one open-weight model's mean refusal on three public benchmarks from 95% to 6% by editing its weights, with general capability scores unchanged (https://anthropic.com/research/glm-5-3-and-the-spread-of-advanced-cyber-capabilities, 29 Sep 2026, single vendor source), so a capability acceptance test does not justify an alignment assumption and a verified digest does. Assume any caller can gain Inspect on the system prompt (AML.T0056 Extract LLM System Prompt), and check whether it holds secrets, credentials, or authorization rules; anything it protects needs a control enforced outside the prompt. Three published GenAI threat modeling methods applied to one production system all missed system prompt leakage (Díaz Ferreyra et al., arXiv:2607.28431), so run this check explicitly and record a finding under L2-T03.
 
 ---
 
@@ -76,6 +80,8 @@ Typical owner: CDO / Head of Data Science / ML Engineering / VP Infrastructure. 
 **Definition.** Grounds agents in reality through knowledge retrieval, memory management, and context engineering. The "knowledge layer" connecting models to real-world information and maintaining persistent state.
 
 **Components.** Vector databases and embedding models; document ingestion pipelines; RAG (chunking, indexing, retrieval); context engineering (the seven context threats CE-T1 poisoning, CE-T2 distraction, CE-T3 confusion, CE-T4 clash, CE-T5 compression-loss, CE-T6 overflow, CE-T7 stale retention); short-term memory (context window); long-term memory (episodic/semantic stores); knowledge graphs; data sanitization and validation; access control and row-level security.
+
+**AI assets.** Dataset (retrieval corpus as raw data, embeddings, labels, metadata); Inputs (prompt context, retrieved content); Hyperparameters (ingestion, chunking, and encoding configuration).
 
 **Primary SSRM owner.** AIC (Agent Owner) primary for data governance, privacy, and integrity. CSP shared for storage and encryption. MP shared for embedding-model integrity. OSP shared for data-pipeline orchestration.
 
@@ -90,7 +96,7 @@ Typical owner: CDO / Head of Data Science / ML Engineering / VP Infrastructure. 
 - **L3-T06 Knowledge graph manipulation** — altering relationships in knowledge graphs to mislead agent reasoning.
 - **L3-T07 Context overflow attack** — deliberately exceeding context limits to force lossy compression.
 
-**Key considerations.** This is the critical boundary between external data and the agent's decision-making process. Context engineering is the dominant security concern in production — when this layer is in scope, evaluate all seven context threats (CE-T1 through CE-T7) against the evidence.
+**Key considerations.** This is the critical boundary between external data and the agent's decision-making process. Context engineering is the dominant security concern in production — when this layer is in scope, evaluate all seven context threats (CE-T1 through CE-T7) against the evidence. Retrieved content joins the prompt without its author seeing the rest of the prompt, so write access to any corpus source is recorded as Contribute on Inputs. Membership inference also applies to the corpus and not only to training data: an attacker with Inspect on Outputs can gain Indirectly Inspect on the retrieval Dataset by querying until the response shows whether a specific document is indexed (Arzanipour et al., arXiv:2509.20324, Definition 2). No canonical L3-T ID covers it, so record it under L3 by the T16 convention, and note that AML.T0024.000 names training-data membership only. For L3-T02, test leakage directly: pair a topic query that pulls the sensitive documents with an instruction to reproduce the retrieved text, and treat an output whose similarity to a retrieved document exceeds a set threshold as a confirmed leak (Definition 3). List that test in Section 14 whenever the corpus holds content some callers are not entitled to. For each store that holds personal data (retrieval corpus, embeddings, long-term memory, fine-tuning set, prompt and response logs), check the evidence for a path to return, correct, and delete one person's data (Liao et al., arXiv:2603.06051, characteristics U.2.2 and U.2.3). Embeddings count as personal data because they can be reversed (L3-T05; characteristic DD.1.3), and weights have no deletion path short of retraining, so personal data in a fine-tuning set is recorded as unerasable once trained. Record a missing path under L10-T06.
 
 ---
 
@@ -103,6 +109,8 @@ Typical owner: CPO / Head of Application Development / Product Engineering / Pla
 **Definition.** Orchestrates model inference, memory management, planning, tool invocation, and sub-agent coordination. Frameworks: LangGraph, Semantic Kernel, AutoGen, CrewAI.
 
 **Components.** Orchestration engines/frameworks; planning and reasoning loops; tool governance registries; sub-agent coordination and delegation; workflow state management; human-in-the-loop mechanisms; skill libraries and invocation logic; permission narrowing for delegation chains.
+
+**AI assets.** Outputs (tool or API actions the model requests); Inputs (another agent's output received as context).
 
 **Primary SSRM owner.** OSP primary for the orchestration platform. AP shared for application-level orchestration policy. AIC defines delegation policies and workflow approval rules.
 
@@ -117,7 +125,7 @@ Typical owner: CPO / Head of Application Development / Product Engineering / Pla
 - **L4-T06 Workflow state tampering** — modification of workflow state to alter execution paths.
 - **L4-T07 Human-in-the-loop bypass** — agent circumvents required human approval steps.
 
-**Key considerations.** Agents use tools adaptively and modify their approach based on results. This layer is the "decision-making brain." For multi-agent systems, additionally evaluate agent-to-agent boundaries, cascading leaks, jailbreak proliferation, collusion, and delegation-chain escalation (L4-T05).
+**Key considerations.** Agents use tools adaptively and modify their approach based on results. This layer is the "decision-making brain." For multi-agent systems, additionally evaluate agent-to-agent boundaries, cascading leaks, jailbreak proliferation, collusion, and delegation-chain escalation (L4-T05). A verifier agent is an attack surface when the agent it checks holds Make Arbitrary Changes on its Inputs, which is the case whenever the verifier reads only that agent's output and self-report. Check three things in the evidence: whether the verifier receives anything the checked agent did not write (tool results, test output, the original task), whether a planner or orchestrator can proceed over a rejection, and whether each verdict is logged with what the verifier saw. Record an overridable verifier under L4-T07 when it stands in for human approval, and confident framing, overstated success, or omitted caveats under L6-T01. For Section 14, have one agent propose an unsafe action and record whether the verifier rejects it. Two orchestrator checks follow from the same reasoning (Paul and Nandy, arXiv:2609.22949, vectors C2 and C3). The aggregation step must treat sub-agent results as data, with no path for a result to change routing or the merge logic (L4-T02). Workflow termination must not rest on the orchestrator model's own decision, so look for a step or time budget and a stop function enforced outside the model, since injected text can otherwise keep a compromised workflow running (L4-T01).
 
 ---
 
@@ -126,6 +134,8 @@ Typical owner: CPO / Head of Application Development / Product Engineering / Pla
 **Definition.** Runtime environment and deployment pipeline for agent systems. Containerization, CI/CD, runtime isolation, service deployment, execution security.
 
 **Components.** Kubernetes / container orchestration; CI/CD pipeline security; runtime isolation and sandboxing; service mesh management; blue/green and canary deployments; rollback mechanisms; resource allocation and limits; runtime integrity monitoring.
+
+**AI assets.** Model Parameters and Hyperparameters in transit through build, model retrieval, and deployment.
 
 **Primary SSRM owner.** CSP + OSP. CSP provides deployment infrastructure and container security. OSP provides runtime orchestration and coordinated deployment. AP shared for deployment configuration. AIC defines rollback policies and approval.
 
@@ -149,6 +159,8 @@ Typical owner: CPO / Head of Application Development / Product Engineering / Pla
 
 **Components.** User-facing applications; tool integration via MCP; multi-agent communication protocols (A2A); agent marketplaces and skill registries; third-party integrations and APIs; business-process automation; agent-to-agent authentication; collaborative multi-agent workflows; circuit breakers and fail-safes.
 
+**AI assets.** Inputs (user input, tool or API descriptions, tool or API results); Outputs (tool or API actions, error messages).
+
 **Primary SSRM owner.** OSP + AP + **Tool Provider** for tool integration and ecosystem management. The Tool Provider is a 3SRM extension to the AICM's five-role supply chain, formally recognized at L6 where TaaS (MCP servers, plugins, external tool APIs) is structurally distinct from CSP/OSP/AP. The STA domain (16 controls) governs supply-chain management for tools, plugins, and MCP servers. STA-16 (Service BOM) is AIC-owned — the Agent Owner must maintain a complete inventory of tool dependencies.
 
 **Key AICM controls.** AIS-11–13 (Agent Boundaries, Source Code, Sandboxing), STA-01–16, TVM-01–13.
@@ -163,7 +175,7 @@ Typical owner: CPO / Head of Application Development / Product Engineering / Pla
 - **L6-T07 User interface manipulation** — deceptive agent outputs that mislead users into unsafe actions.
 - **L6-T08 Tool definition poisoning** — modification of tool descriptions to cause agent to misuse tools.
 
-**Key considerations.** Tool providers are a distinct supply-chain actor under the Agent SSRM. Tool security must be verified via STA-domain controls — not assumed. For multi-agent flows, additionally evaluate inter-agent communication (L6-T01), cascade failures (L6-T02), and A2A trust abuse.
+**Key considerations.** Tool providers are a distinct supply-chain actor under the Agent SSRM. Tool security must be verified via STA-domain controls — not assumed. For multi-agent flows, additionally evaluate inter-agent communication (L6-T01), cascade failures (L6-T02), and A2A trust abuse. Write access to a tool description is Make Arbitrary Changes on that component and Contribute on the assembled Inputs. One agent's Outputs are the next agent's Inputs, so a capability over the first carries to the second. Tool results are Inputs as well: check whether each result is validated against a pinned output schema with unknown fields rejected, because a tool whose output gains an instruction-bearing field delivers Contribute on Inputs with no change to its description (Paul and Nandy, arXiv:2609.22949, vector I3; record under L6-T04 or L3-T04). Check also that an agent receives peer output on a channel or with a marker it cannot confuse with its own instructions, and record output that imitates system-message formatting under L6-T01 (vector M3).
 
 ---
 
@@ -178,6 +190,8 @@ Typical owner: CISO / CTO / VP SecOps / VP Platform Engineering. Control type: p
 **Definition.** Manages agent identity, authentication, authorization, and autonomy boundaries. Cross-cuts all operational layers.
 
 **Components.** Non-human identity lifecycle management; agent authentication and authorization; service-account provisioning and deprovisioning; credential rotation and short-lived (JIT) credentials; agent-to-agent identity federation; autonomy-level configuration; permission scoping and narrowing; human-in-the-loop escalation triggers; agent behavioral boundaries.
+
+**AI assets.** None of the eight AI asset types is held here. Credentials and tokens are conventional assets, and a capability over one is what grants capabilities over the AI assets at other layers.
 
 **Primary SSRM owner.** AIC (AP) primary. The AICM IAM domain (19 controls) is the framework. CSP shared for identity infrastructure and certificates. OSP shared for agent-to-agent federation.
 
@@ -202,6 +216,8 @@ Typical owner: CISO / CTO / VP SecOps / VP Platform Engineering. Control type: p
 
 **Components.** Behavioral guardrails and safety filters; input/output validation; adversarial robustness testing; security incident response; safety alignment verification; prompt-injection detection; hallucination detection and mitigation; circuit breakers for unsafe behavior; red-teaming frameworks.
 
+**AI assets.** Validation or Monitoring Criteria (guardrail rules, filter thresholds, red-team test sets); Validation or Monitoring Results (red-team findings, known bypasses); Inputs to a guardrail model.
+
 **Primary SSRM owner.** Shared by all roles within their delivery layers. TVM-11 (Guardrails) shifts: CSP–MP at platform infrastructure, MP at Model, MP–OSP at Orchestrated Services, AP at Application. AIC is the integrating authority.
 
 **Key AICM controls.** TVM-11 (Guardrails), AIS-08–09 (I/O Validation), MDS-06–07 (Adversarial Attack), SEF-01–09 (Security Incident Management).
@@ -213,7 +229,7 @@ Typical owner: CISO / CTO / VP SecOps / VP Platform Engineering. Control type: p
 - **L8-T04 Incident response blind spots** — security incidents in agent systems that evade traditional SOC detection.
 - **L8-T05 Adversarial robustness failure** — model fails under adversarial conditions not covered by red-teaming.
 
-**Key considerations.** Safety is distinct from security. An agent can be perfectly secure — authenticated, encrypted, authorized — and still cause harm through misaligned behavior, hallucinated outputs, or cascading autonomous decisions. L8 addresses both dimensions.
+**Key considerations.** Safety is distinct from security. An agent can be perfectly secure — authenticated, encrypted, authorized — and still cause harm through misaligned behavior, hallucinated outputs, or cascading autonomous decisions. L8 addresses both dimensions. A guardrail model's Inputs are the protected model's Outputs, so Influence over those Outputs is a capability over the guardrail. Red-team findings and known-bypass lists are assets, because Inspect on them tells an attacker where the model fails. Guardrail evidence for one model does not establish system-level safety when a second model is in the path: an attacker can split a task so each model's share is compliant in isolation, with a refusal-bearing model doing the synthesis and a model with weaker or removed safeguards producing the part the first would refuse. Record this under L8-T01 against the system, and treat any model whose safeguard evidence is absent, or whose weights sit under an `Unjustified` Section 2 row, as the unguarded leg.
 
 ---
 
@@ -222,6 +238,8 @@ Typical owner: CISO / CTO / VP SecOps / VP Platform Engineering. Control type: p
 **Definition.** Systems used to test, monitor, and evaluate agents across all operational layers. Telemetry pipelines, logging frameworks, drift detection, red-teaming, SOC integration.
 
 **Components.** Red-teaming frameworks; prompt and context logging; synthetic test data generation; behavioral baselines and drift detection; OpenTelemetry collection; immutable (WORM) logging; SIEM/SOAR integration; explainability tools (Chain-of-Thought logging); performance and cost metrics; agent behavioral analytics.
+
+**AI assets.** Output Details or Explanations (confidence scores, feature attributions, reasoning chains, cited retrieval sources); Validation or Monitoring Criteria (baselines, drift thresholds, alert rules); Validation or Monitoring Results (performance reports, error analysis, drift findings).
 
 **Primary SSRM owner.** Shared by all roles. CSP provides infrastructure-level monitoring. MP provides model-level monitoring via MDS-10. OSP provides orchestration telemetry. AP provides application logging. AIC integrates into a coherent posture.
 
@@ -235,7 +253,7 @@ Typical owner: CISO / CTO / VP SecOps / VP Platform Engineering. Control type: p
 - **L9-T05 Telemetry poisoning** — injection of false telemetry to mask actual behavior.
 - **L9-T06 Alert fatigue exploitation** — generating noise to desensitize monitoring teams.
 
-**Key considerations.** Operational metrics extend beyond safety — drift, performance, resource usage, cost. Logs must be tamper-evident and stored separately from the agent execution environment. A compromise at any operational layer should generate observable signals at L9. Evaluation/monitoring is NOT the same as audit-grade logging — do not conflate them in the assessment.
+**Key considerations.** Operational metrics extend beyond safety — drift, performance, resource usage, cost. Logs must be tamper-evident and stored separately from the agent execution environment. A compromise at any operational layer should generate observable signals at L9. Evaluation/monitoring is NOT the same as audit-grade logging — do not conflate them in the assessment. Reasoning traces and confidence scores are assets separate from Outputs, because extraction and evasion techniques often need Inspect on them specifically. Corpus poisoning succeeds at the retriever, when a planted document is returned for the attacker's trigger query, before anything is generated (Arzanipour et al., arXiv:2509.20324, Definitions 4 and 5). A log of each query with the document IDs it returned is therefore the evidence L3-T01 needs, and its absence is an L9-T01 blind spot even where prompts and responses are logged.
 
 ---
 
@@ -244,6 +262,8 @@ Typical owner: CISO / CTO / VP SecOps / VP Platform Engineering. Control type: p
 **Definition.** Policies, compliance mapping, audit mechanisms, and the Trust Control Plane. The governance substrate for the entire architecture.
 
 **Components.** Policy-as-code frameworks (OPA, Cedar); compliance automation (PCI DSS, GDPR, EU AI Act); ABAC/RBAC for agent identities; trust metrics and dashboards; audit trail management and evidence collection; risk assessment frameworks; regulatory reporting; third-party assessment and certification; AI ethics governance.
+
+**AI assets.** Validation or Monitoring Criteria (the policies and compliance rules that decide what passes).
 
 **Primary SSRM owner.** AIC. **Governance is non-delegable.** GRC-09 (Acceptable Use), GRC-10 (AI Impact Assessment), GRC-11 (Bias and Fairness), GRC-12 (Ethics Committee) are AIC-owned regardless of deployment model. All providers support governance via compliance attestations.
 

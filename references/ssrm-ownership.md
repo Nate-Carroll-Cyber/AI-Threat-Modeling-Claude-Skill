@@ -38,7 +38,7 @@ The **Agent Owner** is the entity bearing ultimate, **non-delegable** accountabi
 Regardless of which role(s) the Agent Owner occupies, the principle is constant: **the Agent Owner is always accountable for everything the agent and its sub-agents do.** This accountability is non-delegable; it cannot be transferred to a Model Provider, Tool Provider, or any other supply-chain actor by contract.
 
 **The Agent Owner's responsibilities, per 3SRM §3.1**:
-- **Selection and Due Diligence** — choosing providers that meet security/safety requirements (STA domain, STA-16 Service BOM, AI-CAIQ questionnaire).
+- **Selection and Due Diligence** — choosing providers that meet security/safety requirements (STA domain, STA-16 Service BOM, AI-CAIQ questionnaire). The Section 2 consumed-asset table tests this duty. For each component the system consumes, the assumed upstream attacker capability is limited only by an evidenced artifact of one of three kinds: provenance (a pinned digest or revision, a signature verified at load, an attestation, a Service BOM or AI-BOM entry), producer (a named provider with a STAR or AI-CAIQ response, as opposed to an anonymous account), or asset properties (wide adoption and independent study of the specific artifact consumed). With no such artifact the row is `Unjustified`.
 - **Configuration and Policy** — defining behavioral boundaries, autonomy levels, tool access permissions, safety guardrails (AIS-11, TVM-11, GRC-09).
 - **Monitoring and Oversight** — continuous visibility into agent behavior (LOG-14/15) and human oversight enforcement (GRC-15).
 - **Incident Response** — responding to incidents regardless of which provider's component was the proximate cause (SEF domain).
@@ -153,7 +153,7 @@ The Agent 3SRM varies across agent deployment models. **Identify which model app
 For each threat in Section 9 of the output:
 
 1. Look up the layer in the matrix above.
-2. Read off the Primary and Shared owners. Include the Tool Provider where it materially applies (especially L6 threats involving MCP or external tools).
+2. Read off the Primary and Shared owners. Include the Tool Provider where it materially applies (especially L6 threats involving MCP or external tools). When a threat is granted by a Section 2 consumed-asset row, the producer of that asset (MP for a model or weights, Tool Provider for a tool) is the party whose artifact would justify the row, and the Agent Owner is the party that must obtain and verify it.
 3. Note "Agent Owner accountable: yes (always, per 3SRM §3.1 and MAESTRO §9.3)" — this never changes.
 4. If the deployment model affects assignment (AaI vs AaP vs AaaS), state which model is in play and how it shifts the role mapping. Use the §8.2 table above. If the model isn't evidenced, mark ownership as `Partial — depends on deployment model`.
 5. For shared-responsibility threats (e.g., L8 has 5 shared owners), name **all** the parties — don't compress to a single owner. The whole point of the 3SRM is to surface these handoffs.
@@ -165,7 +165,7 @@ For each threat in Section 9 of the output:
 
 When the assessment touches procurement, vendor management, or contract review (which it often does, indirectly), the 3SRM identifies five contractual implications worth flagging in Section 14 (Required Validation Steps):
 
-- **AI-CAIQ as contractual baseline.** Use AI-CAIQ questionnaire responses as contractual annexes establishing provider commitments to specific AICM controls.
+- **AI-CAIQ as contractual baseline.** Use AI-CAIQ questionnaire responses as contractual annexes establishing provider commitments to specific AICM controls. An annexed response is a producer justification for that provider's Section 2 consumed-asset rows. A row describes the producer and not the consumer, so it can be reused for any system consuming the same artifact, and its justification is re-checked at each assessment.
 - **Shared Responsibility Addenda.** Explicitly map provider responsibilities to 3SRM layers and AICM control ownership designations in contracts.
 - **Audit Rights.** Include right-to-audit clauses for AICM controls relevant to each provider's SSRM responsibilities (aligned with A&A-01–06).
 - **Safety SLAs.** Specify safety metrics beyond traditional uptime — maximum hallucination rates, response time for human escalation (GRC-15), behavioral drift thresholds (LOG-14/15).

@@ -53,14 +53,14 @@ These are the reason to use a structured skill rather than free-form analysis; e
 6. Cite real sources for external factual claims; never fabricate URLs.
 7. Prefer a gap assessment over a weak answer.
 8. At most one clarifying question, at the end.
-9. Every lens whose technology or scope is referenced in the evidence or the request runs in full from its reference file (MCP → `mcp-top10.md`, skills/plugins → `agentic-skills-top10.md`, any LLM component → `phantom-b.md`, insider/misalignment → `ai-control-trait-r.md`, persistent identity/delegation → library Part 3). Reference triggers the run; evidence still gates the findings. Skipping a triggered lens or running it from memory invalidates the assessment; Section 10 records the disposition of every lens.
+9. Every lens whose technology or scope is referenced in the evidence or the request runs in full from its reference file (MCP → `mcp-top10.md`, skills/plugins → `agentic-skills-top10.md`, any LLM component → `phantom-b.md`, insider/misalignment → `ai-control-trait-r.md`, a tool-holding agent or outward-reaching model → `harm-categories.md`, persistent identity/delegation → library Part 3). Reference triggers the run; evidence still gates the findings. Skipping a triggered lens or running it from memory invalidates the assessment; Section 10 records the disposition of every lens.
 10. Every `path:line` citation is verified mechanically (`scripts/verify_citations.py`) before the report is final; unresolvable citations are marked `[unverified]` and the finding drops to Partial.
 
 ## Methodology (five steps)
 
-1. **System Decomposition** — map evidenced components to layers; map agent-to-agent boundaries if multi-agent.
-2. **Layer-Specific Threat Analysis** — assess applicable threats per evidenced layer; additionally evaluate multi-agent categories, the seven context-engineering threats (CE-T1…CE-T7), the OWASP Agentic Skills Top 10 lens (AST01–AST10) when the system installs/loads third-party skills or plugins, the OWASP MCP Top 10 lens (MCP01–MCP10) when MCP is explicitly evidenced, the PHANTOM-B eight-prompt lens for every evidenced LLM component, and — if insider-threat/misalignment is in scope — the TRAIT&R inverted-adversary lens.
-3. **Cross-Layer Path Analysis** — trace how compromise propagates; don't manufacture paths.
+1. **System Decomposition** — map evidenced components to layers with their AI asset type and origin (produced or consumed); record each consumed component's assumed upstream attacker capability and its justification in Section 2; map agent-to-agent boundaries if multi-agent.
+2. **Layer-Specific Threat Analysis** — assess applicable threats per evidenced layer by capability test (a threat stays only if the evidence grants the minimum capability it needs over each asset); additionally evaluate multi-agent categories, the seven context-engineering threats (CE-T1…CE-T7), the OWASP Agentic Skills Top 10 lens (AST01–AST10) when the system installs/loads third-party skills or plugins, the OWASP MCP Top 10 lens (MCP01–MCP10) when MCP is explicitly evidenced, the PHANTOM-B eight-prompt lens for every evidenced LLM component, the harm-category lens for any tool-holding agent or outward-reaching model (which also supplies the category named in every Impact line), and — if insider-threat/misalignment is in scope — the TRAIT&R inverted-adversary lens.
+3. **Cross-Layer Path Analysis** — trace how compromise propagates as a chain of stated capabilities, each link naming the rule that carries it (component, dependency, relationship, conversion); don't manufacture paths.
 4. **Mitigation & SSRM Ownership** — recommend concrete controls; assign 3SRM roles.
 5. **Framework Crosswalk** — optional, on request (see **Output** for how to control it).
 
@@ -89,14 +89,15 @@ SKILL.md                                Orchestration: triggers, rules, methodol
                                         the per-threat block template, and edge cases
 README.md                               This file
 references/
-  maestro-layers.md                     The L1–L10 layer catalog: components, sample threats
+  maestro-layers.md                     The L1–L10 layer catalog: components, AI assets (the eight
+                                        asset types of arXiv:2505.06315 placed per layer), sample threats
                                         (L<n>-T<nn>), SSRM owners, the CE-T1…CE-T7 context threats
                                         and multi-agent categories handled inline within the relevant
                                         layers, plus the OWASP T16–T25 extended scenarios mapped to layers
   ssrm-ownership.md                     Agent 3SRM six-role model, responsibility matrix, six-layer
                                         aaS stack, deployment-model variations, the delegation-chain
-                                        accountability principle, and the six categories of structural
-                                        AICM gap
+                                        accountability principle, the six categories of structural
+                                        AICM gap, and the justification kinds for consumed assets
   framework-crosswalk.md                STRIDE / PHANTOM-B / ATLAS / OWASP LLM / OWASP Agentic
                                         (ASI01–ASI10 + T1–T15 with decision path and six mitigation
                                         playbooks) / AST01–AST10 / MCP01–MCP10 / NIST AI RMF /
@@ -114,6 +115,11 @@ references/
                                         design caveats, PB-P…PB-B → MAESTRO v2.0 mapping with
                                         adversary column, per-letter evidence checks, mitigation
                                         routing (the paper ships no controls by design)
+  harm-categories.md                    The outcome lens: eight owner-directed harm categories
+                                        (arXiv:2604.18658, OH-C1…OH-C8), eleven outward-directed
+                                        (AgentHarm, arXiv:2410.09024v3, AH-<Name>), ATLAS external
+                                        harms; MAESTRO v2.0 mapping, owner-context evidence
+                                        artifacts, per-category checks; names the Impact line
   atlas-techniques.md                   GENERATED by scripts/refresh_atlas.py — current MITRE ATLAS
                                         tactics and techniques (ID, name, tactic, maturity, ATT&CK
                                         ref, modified date), dated and versioned; do not hand-edit
@@ -150,6 +156,7 @@ scripts/
 - `agentic-skills-top10.md` — when the system installs or loads third-party skills/plugins, or the user names AST10.
 - `mcp-top10.md` — when MCP is explicitly evidenced, or the user names the MCP Top 10.
 - `phantom-b.md` — for every assessment with an evidenced LLM component (it is the primary L2 prompt set when the system is not agentic), and when the user names PHANTOM-B.
+- `harm-categories.md` — when an agent holds tools, credentials, or data access for an owner, or a model's output reaches people outside the deployment; also whenever an Impact line is written.
 
 ---
 
@@ -169,6 +176,8 @@ The skill deliberately uses several independent ID schemes. Conflating them is t
 - **`ASI01–ASI10`** — the OWASP Agentic Top 10, distinct again from the T1–T15 taxonomy.
 - **`AST01–AST10`** and **`MCP01:2025–MCP10:2025`** — the OWASP Agentic Skills Top 10 and OWASP MCP Top 10; two more independent OWASP numberings (behavior layer and protocol layer). The MCP set is CC BY-NC-SA — own-words only, flag NC for commercial deliverables.
 - **`PB-P … PB-B`** — skill-local shorthand for the eight PHANTOM-B letters (the paper uses bare mnemonic letters, not IDs). Three letters (H, A, B) have no canonical `L2-T<nn>` home and are anchored to the layer, the same way `maestro-layers.md` handles OWASP T16 — never mint an `L2-T07` for them. Non-adversarial PB findings use `Failure mode (no adversary required)` in the Attack Vector field.
+- **Capability names** (`Inspect`, `Contribute`, `Influence`, and the other six defined in `SKILL.md` Step 2) — a vocabulary from arXiv:2505.06315, not an ID scheme. Written as `Asset type (component): Capability` in the Attack Vector field, Section 2, and Section 11; never placed in an ID column and never substituted for `L<n>-T<nn>`.
+- **`OH-C1 … OH-C8`** and **`AH-<Name>`** — skill-local shorthand for the harm categories in `harm-categories.md`. The owner-harm paper's own IDs are C1–C8; AgentHarm identifies its categories by name only. They name outcomes, not mechanisms, and are cited parenthetically and in the Impact line, never in place of `L<n>-T<nn>`.
 - **`AITech-* / AISubtech-*`** — the technique taxonomy in `threat-technique-and-control-library.md` Part 1; a secondary lens, never substituted for MAESTRO IDs.
 - **`AML.T####[.###]`** — MITRE ATLAS technique IDs, cited with sub-technique precision wherever ATLAS has one; names come from the generated `atlas-techniques.md`, and a bare `T0###` in a table cell is shorthand for the AML-prefixed ID.
 - **TRAIT&R `D1–D4` / `R1–R3`** — capability tiers in `ai-control-trait-r.md`; these gate *mitigations by model capability*, a different axis from MAESTRO's layer decomposition. Do not conflate with `L<n>-T<nn>`.
@@ -190,15 +199,17 @@ Add a `## MAESTRO + <Framework>` section to `framework-crosswalk.md`, following 
 
 ### Adding a lens
 
-A lens is a reference file that runs a second taxonomy over the evidence under rule 9. Adding one means: the file with its trigger line ("Mandatory Step 2 lens (skill rule 9; results in Section 10.x)"), a Step 2 item in `SKILL.md` naming the trigger, a rule 9 entry mapping the technology to the file, a fixed slot in the Section 10 order (currently 10.1 PHANTOM-B, 10.2 MCP Top 10, 10.3 AST10, 10.4 Trust & Identity-Lifecycle, 10.5 TRAIT&R), a license line for the Section 8 preamble, and, if it should also crosswalk, a 13.x subsection per the previous note.
+A lens is a reference file that runs a second taxonomy over the evidence under rule 9. Adding one means: the file with its trigger line ("Mandatory Step 2 lens (skill rule 9; results in Section 10.x)"), a Step 2 item in `SKILL.md` naming the trigger, a rule 9 entry mapping the technology to the file, a fixed slot in the Section 10 order (currently 10.1 PHANTOM-B, 10.2 MCP Top 10, 10.3 AST10, 10.4 Trust & Identity-Lifecycle, 10.5 TRAIT&R, 10.6 Harm Categories), a license line for the Section 8 preamble, and, if it should also crosswalk, a 13.x subsection per the previous note.
 
 ### Report-format history
 
-Revision 4 of the skill (Sep 2026) moved from 14 to 16 sections: Section 8 Summary of Findings and Section 10 Lens Results were added after a worked assessment of `cloudflare/mcp-server-cloudflare` showed lens output scattered across the MAESTRO blocks with no single place to audit which lenses ran. `example-report.md` predates this change and shows the 14-section layout.
+Revision 4 of the skill (Sep 2026) moved from 14 to 16 sections: Section 8 Summary of Findings and Section 10 Lens Results were added after a worked assessment of `cloudflare/mcp-server-cloudflare` showed lens output scattered across the MAESTRO blocks with no single place to audit which lenses ran. `example-report.md` follows the 16-section layout.
+
+The October 2026 revision worked the asset-centric method of Sanchez Vicarte et al. (arXiv:2505.06315v2) into the existing steps with no new file and no change to the section count: `AI asset type` and `Origin` columns in Section 6, a consumed-asset table in Section 2, a capability test for applicability in Step 2 with a capability-required line in the Attack Vector field, and capability chains with named propagation rules in Section 11. `example-report.md` predates this change and shows none of them.
 
 ### Source licensing carried in-file
 
-Three lens references have license terms that shape how their content may appear in a deliverable: `mcp-top10.md` is CC BY-NC-SA (own-words only; flag NonCommercial before commercial use), `phantom-b.md` is CC-BY (attribution required, no NC term), and the OWASP AST and Agentic material is CC BY-SA. Keep the license line at the top of each file current when the upstream source changes.
+Three lens references have license terms that shape how their content may appear in a deliverable: `mcp-top10.md` is CC BY-NC-SA (own-words only; flag NonCommercial before commercial use), `phantom-b.md` is CC-BY (attribution required, no NC term), and the OWASP AST and Agentic material is CC BY-SA. `harm-categories.md` cites category names from two arXiv papers (one with no license shown, one under the arXiv non-exclusive license) and writes every definition and check in the skill's own words. The asset types and capability names worked into `maestro-layers.md` and `SKILL.md` are from arXiv:2505.06315, CC BY 4.0, so a report that uses the capability names carries that attribution in Section 2. Keep the license line at the top of each file current when the upstream source changes.
 
 ### Source versioning (known inconsistencies, not yet reconciled)
 
@@ -208,6 +219,13 @@ Reference files cite their MAESTRO / AICM / 3SRM source sections, and some versi
 - **AICM**: cited as "v1.1" across most of the skill. Verify control IDs against the catalog you are working from before audit-grade use.
 - **3SRM**: tracks CSA's *AI Agents: Shared Security and Safety Responsibility Model* (v0.981); naming varies between "Agent 3SRM" and "Agent SSRM" (see the terminology note in `ssrm-ownership.md`).
 - **ATLAS**: snapshot in `references/atlas-techniques.md` is ATLAS 5.6.0 (generated 2026-09-29). Technique names in every mapping table are reconciled against it; re-run `scripts/refresh_atlas.py` on each release.
+- **Asset-centric method**: arXiv:2505.06315v2 (2 Jul 2025), a preprint with no venue or evaluation. Its attack knowledge base and analysis engine are unpublished and not claimed; its Figure 3 implication matrix is not reproduced, only the relations its text states. The layer placement of asset types is this skill's.
+- **RAG formal definitions**: arXiv:2509.20324 (Arzanipour et al., 2025), used for three notes in `maestro-layers.md` (corpus membership inference and the verbatim-leakage test at L3, retrieval logging at L9). Formal definitions with no experiments; version and license not confirmed, so own-words only. Its cited mitigations are not carried because they were not checked against their primary papers.
+- **Multi-agent extension**: arXiv:2508.09815v1 (Krawiecka and Schroeder de Witt, 13 Aug 2025), used for two multi-agent categories (verifier subversion at L4, cross-model task splitting at L8), the Verifier and Refiner distinction in Step 1, and the context-loss note on rewriting controls in Step 4. Its other fifteen classes are already covered or out of scope; its cited frameworks and metrics (NetSafe, TrustAgent, agreement scores) are not carried because they were not checked against their primary papers.
+- **Harm categories**: arXiv:2604.18658 (Zhang and Jiang, preprint) and arXiv:2410.09024v3 (AgentHarm, 18 Apr 2025). `harm-categories.md` carries their category names only; benchmark rates and cited incidents are not carried, and the outward-directed framing and all per-category checks are the skill's. ATLAS external harms fill the financial, reputational, and availability gap both papers leave.
+- **Method comparison (GenAI threat modeling in practice)**: arXiv:2607.28431 (Díaz Ferreyra et al., 2026), a one-case comparison of three published methods against the OWASP LLM Top 10. It prompted the system prompt leakage check at L2 and the AML.T0056 mapping on library row AITech-8.4, since all three methods missed that category. Cited as a preprint; the page carries two different venue strings.
+- **Multi-agent prompt injection**: arXiv:2609.22949v1 (Paul and Nandy, 2026), used for four evidence checks (aggregation and out-of-model termination at L4, tool-output schema validation and format mimicry at L6) and the Step 4 rule that an injection mitigation is credited only against the path it sits on. Its figures are not carried: rates are the maximum across three models, the judging method is unstated, no code or data is released, and its headline residual (4.2%) does not reconcile with its own combined-defense row. The ICML footer on the page is unconfirmed, so it is cited as a preprint.
+- **GenAI privacy (LINDDUN)**: arXiv:2603.06051 (Liao et al.), published at SOUPS 2026, used for four checks: per-store erasure and rectification at L3, fabricated statements about real people under PB-H, residual-leakage assets (KV-cache, gradients) at L1 and L2, and the `Data sent to producer` column in Section 2. The LINDDUN GenAI knowledge base (supplementary DOI 10.5281/zenodo.20645261) is not carried, so this is not a privacy lens. arXiv non-exclusive license, own-words only.
 - **TRAIT&R**: sourced from the *GDM AI Control Roadmap* v0.1 (Phuong et al., Google DeepMind, June 2026). Theory-based, not observed in the wild — findings are marked as conservative hypotheticals. Confirm the citation against the live GDM publication before any audit-facing use.
 
 ### Scripts

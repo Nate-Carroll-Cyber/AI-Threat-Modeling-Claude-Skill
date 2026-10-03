@@ -86,15 +86,15 @@ Grouped by technique family. The **MAESTRO layer** column is added by this skill
 
 | ID | Name | OWASP | ATLAS | MAESTRO |
 |---|---|---|---|---|
-| AITech-8.1 | Membership Inference | LLM02 Info Disclosure | AML.T0024.000 Infer Training Data Membership | L2-T06 |
-| AISubtech-8.1.1 | Presence Detection | LLM02 | AML.T0024.000 Infer Training Data Membership | L2 |
+| AITech-8.1 | Membership Inference | LLM02 Info Disclosure | AML.T0024.000 Infer Training Data Membership (training data only; no ATLAS technique for corpus membership) | L2-T06; L3 for retrieval-corpus membership (no L3-T ID) |
+| AISubtech-8.1.1 | Presence Detection | LLM02 | AML.T0024.000 Infer Training Data Membership | L2, L3 |
 | AITech-8.2 | Data Exfiltration / Exposure | LLM06 Excessive Agency | AML.TA0009 Exfiltration | L6-T06 |
 | AISubtech-8.2.1 | Training Data Exposure | LLM02 | AML.TA0009 | L2, L3 |
 | AISubtech-8.2.2 | LLM Data Leakage | LLM02 | AML.TA0009 | L2 |
 | AITech-8.3 | Information Disclosure | LLM02 | AML.TA0009 | L6 |
 | AISubtech-8.3.1 | Tool Metadata Exposure | LLM02 | AML.TA0009 | L6 |
 | AISubtech-8.3.2 | System Information Leakage | LLM02 | AML.TA0009 | L1, L6 |
-| AITech-8.4 | Prompt/Meta Extraction | LLM07 Prompt Leakage | AML.T0051 LLM Prompt Injection | L2, L4 |
+| AITech-8.4 | Prompt/Meta Extraction | LLM07 Prompt Leakage | AML.T0056 Extract LLM System Prompt; AML.T0051 LLM Prompt Injection | L2, L4 |
 
 ### Family 9 — Code Execution, Evasion & Dependency Compromise (→ L5/L6)
 

@@ -93,7 +93,7 @@ Example mappings:
 
 | ATLAS Technique (ATLAS 5.6.0 IDs, from `atlas-techniques.md`) | MAESTRO Layer |
 |---|---|
-| AML.T0024 Exfiltration via AI Inference API — .002 Extract AI Model, .001 Invert AI Model, .000 Infer Training Data Membership | L2 (L2-T01 for .002; L2-T06 for .001/.000) |
+| AML.T0024 Exfiltration via AI Inference API — .002 Extract AI Model, .001 Invert AI Model, .000 Infer Training Data Membership | L2 (L2-T01 for .002; L2-T06 for .001/.000). Retrieval-corpus membership is an L3 finding with no ATLAS technique; do not cite .000 for it |
 | AML.T0020 Poison Training Data; AML.T0018.000 Poison AI Model; AML.T0058 Publish Poisoned Models | L3 (L3-T01); L2 (L2-T02 training-time, L2-T04 for T0058) |
 | AML.T0015 Evade AI Model; AML.T0054 LLM Jailbreak; AML.T0068 LLM Prompt Obfuscation | L2 / L8 (L2-T03, L8-T01) |
 | AML.T0051 LLM Prompt Injection — .000 Direct, .001 Indirect, .002 Triggered | L2 / L4 (L2-T03, L4-T02); .001 and .002 also L3-T04 / CE-T1 (PB-P sub-types) |

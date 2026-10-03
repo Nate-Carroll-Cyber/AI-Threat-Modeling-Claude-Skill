@@ -56,6 +56,7 @@ Same discipline as the AST and MCP lenses: each item is an evidence question; "n
 ### PB-H — Hallucination
 - What does the deployment assume about output correctness, and what happens when that assumption fails (cost of a wrong answer vs. a wrong action)?
 - Is there a grounding, verification, or citation-check step before output is used or shown?
+- Can the output state facts about a real, identifiable person? A fabricated statement about one is a privacy finding even when no stored data leaked (Liao et al., arXiv:2603.06051, characteristic DD.3.5). Check for an evidenced control on person-directed claims (grounding to a record, refusal, or a correction route), and note L10-T06 impact where accuracy duties over personal data apply.
 - Is a hallucination rate measured against a defined baseline (safety SLA per `ssrm-ownership.md`), and is the measurement pipeline distinct from security logging (skill rule 4)?
 - In agent chains: does one component's output feed another's context without validation (PB-H → L8-T03 path)?
 
