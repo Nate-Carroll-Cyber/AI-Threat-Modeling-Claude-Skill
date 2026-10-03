@@ -107,7 +107,7 @@ For each documented threat:
 2. Assign **SSRM ownership** per `references/ssrm-ownership.md`: CSP / MP / OSP / AP / Tool Provider / AIC (Agent Owner). The framework is formally the **Agent 3SRM** (Agent Shared Security and Safety Responsibility Model) — the 3SRM extends the AICM's five-role supply chain with a sixth role (Tool Provider) to reflect that MCP and similar tool-delivery protocols are structurally distinct from CSP/OSP/AP. Note Primary, Shared, and the Agent Owner's non-delegable accountability for L10 and for all sub-agent actions in any delegation chain.
 3. Where ownership depends on deployment model (AaI / AaP / AaaS), say so and either ask the clarifying question or mark as `Unanswerable from current evidence`.
 
-### Step 5 — Framework Crosswalk (optional, on request)
+### Step 5 — Framework Crosswalk
 
 If the user asks for STRIDE, PHANTOM-B, MITRE ATLAS, OWASP LLM Top 10, OWASP Agentic Top 10, the OWASP Agentic T1–T15 threats/playbooks, the OWASP Agentic Skills Top 10 (AST01–AST10), the OWASP MCP Top 10 (MCP01–MCP10), or NIST AI RMF alignment, use `references/framework-crosswalk.md` (PHANTOM-B detail: `references/phantom-b.md`; AST10 detail: `references/agentic-skills-top10.md`; MCP detail: `references/mcp-top10.md`). Otherwise this section is omitted — MAESTRO is the primary spine.
 
